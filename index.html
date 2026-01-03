@@ -5,24 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Multi-Placement Room</title>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
         model-viewer { width: 100vw; height: 100vh; background-color: #eee; }
 
-        /* Your Slider Menu */
         .slider {
             position: fixed;
-            bottom: 20px;
+            bottom: 100px; /* Moved up to clear the AR button */
             width: 100%;
             display: flex;
             justify-content: center;
-            gap: 10px;
-            z-index: 999; /* Keeps it above the AR view */
+            gap: 15px;
+            z-index: 999;
         }
         .slide {
-            width: 80px; height: 80px;
-            background: white; border-radius: 10px;
-            border: 2px solid #ccc; cursor: pointer;
+            width: 70px; height: 70px;
+            background: white; border-radius: 12px;
+            border: 3px solid white; cursor: pointer;
             background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        .slide:active { transform: scale(0.9); }
+
+        /* The AR Start Button Styling */
+        #ar-button {
+            background-color: #ffffff;
+            color: #212529;
+            border-radius: 30px;
+            border: none;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
         }
     </style>
 </head>
@@ -33,15 +52,20 @@
     <model-viewer id="room-stager" 
         src="./models/sofa-v1.glb"
         ar
-        ar-size="fixed"
-        ar ar-modes="webxr" 
+        ar-modes="webxr scene-viewer quick-look" 
+        ar-scale="fixed"
         ar-placement="floor"
-        camera-controls touch-action="none">
+        camera-controls 
+        touch-action="none">
         
+        <button slot="ar-button" id="ar-button">
+            ✨ VIEW IN YOUR ROOM
+        </button>
+
         <div class="slider">
-            <div class="slide" style="background-image: url('./images/sofa.jpg')" onclick="changeModel('./models/sofa-v1.glb')></div>
-            <div class="slide" style="background-image: url('/images/table1.webp')" onclick="changeModel('./models/study_table-v2.glb')"></div>
-            <div class="slide" style="background-image: url('/images/bed1.jpg')" onclick="changeModel('./models/single_bed-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/sofa.jpg')" onclick="changeModel('./models/sofa-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/table1.webp')" onclick="changeModel('./models/study_table-v2.glb')"></div>
+            <div class="slide" style="background-image: url('./images/bed1.jpg')" onclick="changeModel('./models/single_bed-v1.glb')"></div>
         </div>
 
     </model-viewer>
@@ -50,17 +74,15 @@
         const mv = document.querySelector("#room-stager");
 
         function changeModel(path) {
-            // This changes the 'active' model in the user's hand
             mv.src = path;
+            console.log("Switched model to: " + path);
         }
 
-        // Logic to handle your "50MB Limit" and "Clear Cache"
         mv.addEventListener('ar-status', (event) => {
             if (event.detail.status === 'session-started') {
-                console.log("AR Started: Checking Memory...");
-                // Force a clean start by appending a timestamp to the URL
-                // This tricks the browser into thinking it's a new file (clears cache)
-                mv.src = mv.src + "?v=" + new Date().getTime();
+                // Cache busting: trick the browser to reload fresh
+                const currentSrc = mv.src.split('?')[0]; 
+                mv.src = currentSrc + "?v=" + new Date().getTime();
             }
         });
     </script>
