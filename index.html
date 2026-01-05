@@ -1,24 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Floor-Locked Stager</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: sans-serif;
-        }
-
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        
         model-viewer {
             width: 100vw;
             height: 100vh;
             background-color: #f0f0f0;
         }
 
-        /* The Slider: Placed inside model-viewer to show in WebXR */
+        /* Slider UI */
         .slider {
             position: fixed;
             bottom: 140px;
@@ -30,14 +25,10 @@
         }
 
         .slide {
-            width: 70px;
-            height: 70px;
-            background: white;
-            border-radius: 12px;
-            border: 3px solid white;
-            cursor: pointer;
-            background-size: cover;
-            background-position: center;
+            width: 70px; height: 70px;
+            background: white; border-radius: 12px;
+            border: 3px solid white; cursor: pointer;
+            background-size: cover; background-position: center;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         }
 
@@ -55,6 +46,23 @@
             font-weight: bold;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             z-index: 1001;
+        }
+
+        /* NEW: Rescan Button - only visible during AR */
+        #rescan-button {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 2001;
+            cursor: pointer;
         }
 
         /* Calibration Instructions */
@@ -77,30 +85,37 @@
         }
     </style>
 </head>
-
 <body>
 
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
-    <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed" /*
-        THE "HARD RULES" FOR ACCURACY */ ar-hit-test initial-placement="floor" interpolation-decay="200" camera-controls
-        shadow-intensity="2" shadow-softness="0" environment-image="neutral">
+    <model-viewer id="room-stager" 
+        src="models/sofa-v1.glb" 
+        ar 
+        ar-modes="webxr" 
+        ar-placement="floor" 
+        ar-scale="fixed"
+        ar-hit-test
+        initial-placement="floor"
+        interpolation-decay="200"
+        camera-controls 
+        shadow-intensity="2"
+        shadow-softness="0"
+        environment-image="neutral">
 
         <button slot="ar-button" id="ar-button">✨ VIEW IN YOUR ROOM</button>
+
+        <button id="rescan-button" onclick="rescan()">🔄 RESCAN FLOOR</button>
 
         <div id="instructions">
             <p id="instruction-text">Scanning floor... move phone side-to-side.</p>
         </div>
 
         <div class="slider">
-            <div class="slide" style="background-image: url('./images/sofa.jpg')"
-                onclick="changeModel('models/sofa-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/table1.webp')"
-                onclick="changeModel('models/study_table-v2.glb')"></div>
-            <div class="slide" style="background-image: url('./images/bed1.jpg')"
-                onclick="changeModel('models/single_bed-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/gamingchair.webp')"
-                onclick="changeModel('models/gaming_chair-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/sofa.jpg')" onclick="changeModel('models/sofa-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/table1.webp')" onclick="changeModel('models/study_table-v2.glb')"></div>
+            <div class="slide" style="background-image: url('./images/bed1.jpg')" onclick="changeModel('models/single_bed-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/gamingchair.webp')" onclick="changeModel('models/gaming_chair-v1.glb')"></div>
         </div>
 
     </model-viewer>
@@ -109,40 +124,43 @@
         const mv = document.querySelector("#room-stager");
         const instructions = document.querySelector("#instructions");
         const statusText = document.querySelector("#instruction-text");
+        const rescanBtn = document.querySelector("#rescan-button");
 
         function changeModel(path) {
             mv.src = path;
         }
 
-        // Logic for Floor Locking
+        // NEW: Rescan Function
+        function rescan() {
+            // Forces the model to reset its hit-test position
+            const currentSrc = mv.src;
+            mv.src = ""; // Clear momentarily
+            setTimeout(() => {
+                mv.src = currentSrc;
+                instructions.style.display = "block";
+                statusText.innerText = "Rescanning... find a flat surface.";
+                statusText.style.background = "rgba(0, 0, 0, 0.75)";
+            }, 100);
+        }
+
         mv.addEventListener('ar-status', (event) => {
             if (event.detail.status === 'session-started') {
                 instructions.style.display = "block";
-                statusText.innerText = "Scanning floor... move phone side-to-side.";
+                rescanBtn.style.display = "block"; // Show rescan button in AR
             } else {
                 instructions.style.display = "none";
+                rescanBtn.style.display = "none"; // Hide when leaving AR
             }
         });
 
-        // This fires only when a stable floor plane is detected
         mv.addEventListener('ar-hit-test-achieved', () => {
-            statusText.innerText = "Floor locked. Tap to place furniture.";
-            statusText.style.background = "rgba(0, 128, 0, 0.8)"; // Change to Green
-
-            // Auto-hide instructions after placement
+            statusText.innerText = "Floor locked. Tap to place.";
+            statusText.style.background = "rgba(0, 128, 0, 0.8)";
+            
             setTimeout(() => {
                 instructions.style.display = "none";
             }, 3000);
         });
-
-        // Fallback for failed tracking
-        mv.addEventListener('ar-tracking', (event) => {
-            if (event.detail.status === 'not-tracking') {
-                statusText.innerText = "Lost tracking. Move phone to find floor again.";
-                statusText.style.background = "rgba(255, 0, 0, 0.7)";
-            }
-        });
     </script>
 </body>
-
 </html>
