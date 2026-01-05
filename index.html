@@ -4,27 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Room Stager - Professional</title>
+    <title>AR Floor-Locked Stager</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: sans-serif;
         }
 
-        /* The 3D Viewer Container */
         model-viewer {
             width: 100vw;
             height: 100vh;
             background-color: #f0f0f0;
-            --poster-color: transparent;
         }
 
-        /* The Slider Menu */
+        /* The Slider: Placed inside model-viewer to show in WebXR */
         .slider {
             position: fixed;
             bottom: 140px;
-            /* Positioned above the AR button */
             width: 100%;
             display: flex;
             justify-content: center;
@@ -33,65 +30,50 @@
         }
 
         .slide {
-            width: 75px;
-            height: 75px;
+            width: 70px;
+            height: 70px;
             background: white;
-            border-radius: 15px;
+            border-radius: 12px;
             border: 3px solid white;
             cursor: pointer;
             background-size: cover;
             background-position: center;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         }
 
-        .slide:hover {
-            transform: translateY(-5px);
-            border-color: #4285f4;
-        }
-
-        .slide:active {
-            transform: scale(0.9);
-        }
-
-        /* The Launch AR Button */
+        /* Launch Button */
         #ar-button {
             background-color: #4285f4;
             color: white;
             border-radius: 30px;
             border: none;
             position: absolute;
-            bottom: 40px;
+            bottom: 45px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 16px 32px;
+            padding: 15px 35px;
             font-weight: bold;
-            font-size: 16px;
-            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             z-index: 1001;
-            cursor: pointer;
         }
 
-        /* Instructions Overlay */
+        /* Calibration Instructions */
         #instructions {
             display: none;
-            /* Only shown when AR session starts */
             position: fixed;
             top: 20%;
             width: 100%;
             text-align: center;
             z-index: 2000;
-            pointer-events: none;
         }
 
         #instructions p {
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             color: white;
             display: inline-block;
-            padding: 12px 24px;
+            padding: 12px 25px;
             border-radius: 25px;
             font-size: 14px;
-            backdrop-filter: blur(5px);
         }
     </style>
 </head>
@@ -100,14 +82,14 @@
 
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
-    <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed"
-        camera-controls interaction-prompt="auto" ar-tracking="auto" shadow-intensity="1.5" shadow-softness="1"
-        environment-image="neutral" exposure="1">
+    <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed" /*
+        THE "HARD RULES" FOR ACCURACY */ ar-hit-test initial-placement="floor" interpolation-decay="200" camera-controls
+        shadow-intensity="2" shadow-softness="0" environment-image="neutral">
 
         <button slot="ar-button" id="ar-button">✨ VIEW IN YOUR ROOM</button>
 
         <div id="instructions">
-            <p id="instruction-text">Move your phone slowly to find the floor...</p>
+            <p id="instruction-text">Scanning floor... move phone side-to-side.</p>
         </div>
 
         <div class="slider">
@@ -126,44 +108,39 @@
     <script>
         const mv = document.querySelector("#room-stager");
         const instructions = document.querySelector("#instructions");
-        const instructionText = document.querySelector("#instruction-text");
+        const statusText = document.querySelector("#instruction-text");
 
-        // 1. Function to switch models
         function changeModel(path) {
-            // Append timestamp to prevent caching issues while you are testing
-            const cleanPath = path.split('?')[0];
-            mv.src = `${cleanPath}?v=${new Date().getTime()}`;
-            console.log("Loading model: " + path);
+            mv.src = path;
         }
 
-        // 2. Handle AR Session Start/End
+        // Logic for Floor Locking
         mv.addEventListener('ar-status', (event) => {
             if (event.detail.status === 'session-started') {
                 instructions.style.display = "block";
-                instructionText.innerText = "Move phone slowly to scan floor...";
+                statusText.innerText = "Scanning floor... move phone side-to-side.";
             } else {
                 instructions.style.display = "none";
             }
         });
 
-        // 3. Update instructions when the Reticle (floor) is found
-        mv.addEventListener('ar-tracking', (event) => {
-            if (event.detail.status === 'tracking') {
-                instructionText.innerText = "Floor Found! Tap the circle to place.";
+        // This fires only when a stable floor plane is detected
+        mv.addEventListener('ar-hit-test-achieved', () => {
+            statusText.innerText = "Floor locked. Tap to place furniture.";
+            statusText.style.background = "rgba(0, 128, 0, 0.8)"; // Change to Green
 
-                // Hide instruction after successful placement
-                setTimeout(() => {
-                    if (instructions.style.display === "block") {
-                        instructions.style.opacity = "0";
-                        setTimeout(() => { instructions.style.display = "none"; instructions.style.opacity = "1"; }, 500);
-                    }
-                }, 4000);
-            }
+            // Auto-hide instructions after placement
+            setTimeout(() => {
+                instructions.style.display = "none";
+            }, 3000);
         });
 
-        // 4. Debugging: Log errors if a model fails to load
-        mv.addEventListener('error', (error) => {
-            console.error("Model Error:", error.detail);
+        // Fallback for failed tracking
+        mv.addEventListener('ar-tracking', (event) => {
+            if (event.detail.status === 'not-tracking') {
+                statusText.innerText = "Lost tracking. Move phone to find floor again.";
+                statusText.style.background = "rgba(255, 0, 0, 0.7)";
+            }
         });
     </script>
 </body>
