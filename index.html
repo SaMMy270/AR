@@ -1,32 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Multi-Placement Room</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; }
-        model-viewer { width: 100vw; height: 100vh; background-color: #eee; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        model-viewer {
+            width: 100vw;
+            height: 100vh;
+            background-color: #eee;
+        }
 
         .slider {
             position: fixed;
-            bottom: 150px; /* Moved up to clear the AR button */
+            bottom: 150px;
+            /* Moved up to clear the AR button */
             width: 100%;
             display: flex;
             justify-content: center;
             gap: 15px;
             z-index: 999;
         }
+
         .slide {
-            width: 70px; height: 70px;
-            background: white; border-radius: 12px;
-            border: 3px solid white; cursor: pointer;
+            width: 70px;
+            height: 70px;
+            background: white;
+            border-radius: 12px;
+            border: 3px solid white;
+            cursor: pointer;
             background-size: cover;
             background-position: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s;
         }
-        .slide:active { transform: scale(0.9); }
+
+        .slide:active {
+            transform: scale(0.9);
+        }
 
         /* The AR Start Button Styling */
         #ar-button {
@@ -40,34 +58,37 @@
             transform: translateX(-50%);
             padding: 15px 30px;
             font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             z-index: 1000;
         }
     </style>
 </head>
+
 <body>
 
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
-    <model-viewer id="room-stager" 
-        src="./models/sofa-v1.glb"
-        ar
-        ar-modes="webxr scene-viewer quick-look" 
-        ar-scale="fixed"
-        ar-placement="floor"
-        camera-controls 
-        touch-action="none">
-        
-        <button slot="ar-button" id="ar-button">
-            ✨ VIEW IN YOUR ROOM
-        </button>
+    <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed"
+        camera-controls interaction-prompt="auto" shadow-intensity="1" shadow-softness="0.5">
 
-        <div class="slider">
-            <div class="slide" style="background-image: url('./images/sofa.jpg')" onclick="changeModel('./models/sofa-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/table1.webp')" onclick="changeModel('./models/study_table-v2.glb')"></div>
-            <div class="slide" style="background-image: url('./images/bed1.jpg')" onclick="changeModel('./models/single_bed-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/gamingchair.webp')" onclick="changeModel('./models/gaming_chair-v1.glb')"></div>
-        </div>
+        <button slot="ar-button" id="ar-button">✨ PLACE ON FLOOR</button>
+
+    </model-viewer>
+
+    <button slot="ar-button" id="ar-button">
+        ✨ VIEW IN YOUR ROOM
+    </button>
+
+    <div class="slider">
+        <div class="slide" style="background-image: url('./images/sofa.jpg')"
+            onclick="changeModel('./models/sofa-v1.glb')"></div>
+        <div class="slide" style="background-image: url('./images/table1.webp')"
+            onclick="changeModel('./models/study_table-v2.glb')"></div>
+        <div class="slide" style="background-image: url('./images/bed1.jpg')"
+            onclick="changeModel('./models/single_bed-v1.glb')"></div>
+        <div class="slide" style="background-image: url('./images/gamingchair.webp')"
+            onclick="changeModel('./models/gaming_chair-v1.glb')"></div>
+    </div>
 
     </model-viewer>
 
@@ -82,10 +103,11 @@
         mv.addEventListener('ar-status', (event) => {
             if (event.detail.status === 'session-started') {
                 // Cache busting: trick the browser to reload fresh
-                const currentSrc = mv.src.split('?')[0]; 
+                const currentSrc = mv.src.split('?')[0];
                 mv.src = currentSrc + "?v=" + new Date().getTime();
             }
         });
     </script>
 </body>
+
 </html>
