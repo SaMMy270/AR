@@ -57,6 +57,9 @@
         </div>
     </div>
 
+    <!-- DEBUG: preview badge so you can see/toggle the floor selection overlay outside AR -->
+    <div id="ui-preview-badge" class="ui-preview">Preview: tap to show floor overlay</div>
+
     <script>
         const mv = document.querySelector("#room-stager");
         const instructions = document.querySelector("#instructions");
@@ -430,6 +433,34 @@
         // initial status
         statusText.innerText = "Scanning floor... move phone side-to-side.";
         statusText.style.background = "rgba(0, 0, 0, 0.75)";
+
+        // Preview badge behavior (shows overlay for non-AR testing)
+        const previewBadge = document.getElementById('ui-preview-badge');
+        previewBadge.addEventListener('click', () => {
+            if (floorSelectOverlay.classList.contains('hidden')) showOverlay(floorSelectOverlay);
+            else hideOverlay(floorSelectOverlay);
+        });
+
+        // Hide preview badge during real AR sessions, show it again when not in AR
+        mv.addEventListener('ar-status', (event) => {
+            if (event.detail.status === 'session-started') {
+                previewBadge.style.display = 'none';
+                instructions.style.display = "none";
+                rescanBtn.style.display = "none";
+                inAR = true;
+                hideOverlay(floorSelectOverlay);
+                hideOverlay(floorMappingOverlay);
+            } else {
+                previewBadge.style.display = 'block';
+                instructions.style.display = "block";
+                rescanBtn.style.display = "block";
+                inAR = false;
+                showOverlay(floorSelectOverlay);
+            }
+        });
+
+        // show preview badge initially for visibility (desktop testing)
+        previewBadge.style.display = 'block';
 
     </script>
 </body>
