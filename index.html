@@ -1,107 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Floor-Locked Stager</title>
-    <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; }
-        
-        model-viewer {
-            width: 100vw;
-            height: 100vh;
-            background-color: #f0f0f0;
-        }
-
-        /* Slider UI */
-        .slider {
-            position: fixed;
-            bottom: 140px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            z-index: 1000;
-        }
-
-        .slide {
-            width: 70px; height: 70px;
-            background: white; border-radius: 12px;
-            border: 3px solid white; cursor: pointer;
-            background-size: cover; background-position: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Launch Button */
-        #ar-button {
-            background-color: #4285f4;
-            color: white;
-            border-radius: 30px;
-            border: none;
-            position: absolute;
-            bottom: 45px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 15px 35px;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            z-index: 1001;
-        }
-
-        /* NEW: Rescan Button - only visible during AR */
-        #rescan-button {
-            display: none;
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 2001;
-            cursor: pointer;
-        }
-
-        /* Calibration Instructions */
-        #instructions {
-            display: none;
-            position: fixed;
-            top: 20%;
-            width: 100%;
-            text-align: center;
-            z-index: 2000;
-        }
-
-        #instructions p {
-            background: rgba(0, 0, 0, 0.75);
-            color: white;
-            display: inline-block;
-            padding: 12px 25px;
-            border-radius: 25px;
-            font-size: 14px;
-        }
-    </style>
+    <!-- moved inline styles to external stylesheet -->
+    <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
-    <model-viewer id="room-stager" 
-        src="models/sofa-v1.glb" 
-        ar 
-        ar-modes="webxr" 
-        ar-placement="floor" 
-        ar-scale="fixed"
-        ar-hit-test
-        initial-placement="floor"
-        interpolation-decay="200"
-        camera-controls 
-        shadow-intensity="2"
-        shadow-softness="0"
-        environment-image="neutral">
+    <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed"
+        ar-hit-test initial-placement="floor" interpolation-decay="200" camera-controls shadow-intensity="2"
+        shadow-softness="0" environment-image="neutral">
 
         <button slot="ar-button" id="ar-button">✨ VIEW IN YOUR ROOM</button>
 
@@ -112,14 +26,32 @@
         </div>
 
         <div class="slider">
-            <div class="slide" style="background-image: url('./images/sofa.jpg')" onclick="changeModel('models/sofa-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/table1.webp')" onclick="changeModel('models/study_table-v2.glb')"></div>
-            <div class="slide" style="background-image: url('./images/bed1.jpg')" onclick="changeModel('models/single_bed-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/gamingchair.webp')" onclick="changeModel('models/gaming_chair-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/wadrobe.png')" onclick="changeModel('models/wadrobe.glb')"></div>
-        </div>
+            <div class="slide" style="background-image: url('./images/sofa.jpg')"
+                onclick="changeModel('models/sofa-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/table1.webp')"
+                onclick="changeModel('models/study_table-v2.glb')"></div>
+            <div class="slide" style="background-image: url('./images/bed1.jpg')"
+                onclick="changeModel('models/single_bed-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/gamingchair.webp')"
+                onclick="changeModel('models/gaming_chair-v1.glb')"></div>
+            <div </div>
 
     </model-viewer>
+
+    <!-- NEW: Minimap top-down view for sampled floor points (lightweight) -->
+    <canvas id="floor-minimap" width="160" height="160" aria-hidden="true"></canvas>
+
+    <!-- NEW: Fine position controls -->
+    <div id="fine-controls" aria-hidden="false">
+        <button id="nudge-left" title="Move left">◀</button>
+        <button id="nudge-right" title="Move right">▶</button>
+        <button id="nudge-forward" title="Move forward">▲</button>
+        <button id="nudge-back" title="Move back">▼</button>
+        <button id="rotate-left" title="Rotate -15°">⟲</button>
+        <button id="rotate-right" title="Rotate +15°">⟳</button>
+        <input id="scale-range" type="range" min="0.5" max="2" step="0.05" value="1" title="Scale">
+        <div class="note" id="fine-note">Tap AR to place. Fine controls try to apply in AR if supported.</div>
+    </div>
 
     <script>
         const mv = document.querySelector("#room-stager");
@@ -127,41 +59,319 @@
         const statusText = document.querySelector("#instruction-text");
         const rescanBtn = document.querySelector("#rescan-button");
 
+        // NEW: Minimap context + hit sample buffer (lightweight)
+        const minimap = document.querySelector('#floor-minimap');
+        const ctx = minimap.getContext('2d');
+        let hitSamples = []; // keep small number for lightweightness
+        const MAX_SAMPLES = 300;
+
+        // Helper: push sample (world x,z) and keep recent ones
+        function pushSample(x, z) {
+            hitSamples.push({ x, z });
+            if (hitSamples.length > MAX_SAMPLES) hitSamples.shift();
+            drawMinimap();
+        }
+
+        // Convex hull (Monotone Chain) - 2D for x,z
+        function convexHull(points) {
+            if (points.length <= 2) return points.slice();
+            // copy & sort by x then z
+            const pts = points.slice().sort((a, b) => a.x === b.x ? a.z - b.z : a.x - b.x);
+            const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+            const lower = [];
+            for (const p of pts) {
+                while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+                lower.push(p);
+            }
+            const upper = [];
+            for (let i = pts.length - 1; i >= 0; i--) {
+                const p = pts[i];
+                while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+                upper.push(p);
+            }
+            lower.pop(); upper.pop();
+            return lower.concat(upper);
+        }
+
+        // Draw a small top-down minimap (pure top-down XZ visualization)
+        function drawMinimap() {
+            ctx.clearRect(0, 0, minimap.width, minimap.height);
+            if (hitSamples.length === 0) return;
+            // compute bounds
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            for (const p of hitSamples) {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.z < minZ) minZ = p.z;
+                if (p.z > maxZ) maxZ = p.z;
+            }
+            // pad bounds
+            const pad = 0.25 * Math.max(maxX - minX || 1, maxZ - minZ || 1);
+            minX -= pad; maxX += pad; minZ -= pad; maxZ += pad;
+            const scaleX = (minimap.width - 8) / (maxX - minX || 1);
+            const scaleZ = (minimap.height - 8) / (maxZ - minZ || 1);
+
+            // draw samples
+            ctx.fillStyle = "rgba(0,200,150,0.08)";
+            ctx.strokeStyle = "rgba(0,200,150,0.25)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (const p of hitSamples) {
+                const sx = 4 + (p.x - minX) * scaleX;
+                const sz = 4 + (maxZ - p.z) * scaleZ; // invert z for screen Y
+                ctx.fillRect(sx - 1, sz - 1, 2, 2);
+            }
+            ctx.fill();
+
+            // hull
+            const hull = convexHull(hitSamples);
+            if (hull.length > 1) {
+                ctx.fillStyle = "rgba(255,160,0,0.12)";
+                ctx.strokeStyle = "rgba(255,160,0,0.9)";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < hull.length; i++) {
+                    const p = hull[i];
+                    const sx = 4 + (p.x - minX) * scaleX;
+                    const sz = 4 + (maxZ - p.z) * scaleZ;
+                    if (i === 0) ctx.moveTo(sx, sz);
+                    else ctx.lineTo(sx, sz);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // center marker
+            ctx.fillStyle = "rgba(255,255,255,0.9)";
+            ctx.strokeStyle = "rgba(0,0,0,0.5)";
+            ctx.beginPath();
+            ctx.arc(minimap.width / 2, minimap.height / 2, 3, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+        }
+
+        // Try to extract world coordinates from hit-test events (best-effort)
+        let lastHitPos = null; // {x,y,z}
+        function handleHitTestEvent(detail) {
+            // Best-effort: model-viewer may provide detail.position (x,y,z) or matrix/transform
+            if (!detail) return;
+            if (detail.position && typeof detail.position.x === 'number') {
+                const p = detail.position;
+                lastHitPos = { x: p.x, y: p.y, z: p.z };
+                pushSample(p.x, p.z);
+            } else if (detail.hitMatrix && detail.hitMatrix.length >= 3) {
+                // If a matrix is given, extract translation from it if it follows column-major or row-major.
+                // Best-effort extraction (works in many engines).
+                const m = detail.hitMatrix;
+                const x = m[12] ?? m[3] ?? 0;
+                const y = m[13] ?? m[7] ?? 0;
+                const z = m[14] ?? m[11] ?? 0;
+                lastHitPos = { x, y, z };
+                pushSample(x, z);
+            } else if (detail.transform) {
+                // Some runtimes use transform.position
+                const t = detail.transform;
+                if (t.position && typeof t.position.x === 'number') {
+                    lastHitPos = { x: t.position.x, y: t.position.y, z: t.position.z };
+                    pushSample(lastHitPos.x, lastHitPos.z);
+                }
+            }
+        }
+
         function changeModel(path) {
             mv.src = path;
         }
 
-        // NEW: Rescan Function
+        // NEW: Fine transform helpers that attempt to mutate the placed model.
+        // This uses model-viewer hosted model if available (works in many environments).
+        // If not available, we gracefully inform the user.
+        function getModelRoot() {
+            // Try several known internal properties (best-effort).
+            // Many modern model-viewer builds expose mv.model with a scene root.
+            try {
+                if (mv.model && mv.model.scene) return mv.model.scene;
+                if (mv.getModel && mv.getModel()) {
+                    const m = mv.getModel();
+                    if (m.scene) return m.scene;
+                    if (m.scenes && m.scenes[0]) return m.scenes[0];
+                }
+                // fallback: some builds expose _scene
+                if (mv._scene && mv._scene.root) return mv._scene.root;
+            } catch (e) {
+                // silent
+            }
+            return null;
+        }
+
+        function applyNudge(dx = 0, dz = 0) {
+            const root = getModelRoot();
+            if (root) {
+                // Many runtimes expose Three-like position
+                if ('position' in root) {
+                    root.position.x += dx;
+                    root.position.z += dz;
+                } else if ('translation' in root) {
+                    root.translation.x += dx;
+                    root.translation.z += dz;
+                }
+            } else {
+                showTransientNote("Fine position adjustment not available in this browser/AR runtime.");
+            }
+        }
+
+        function applyRotate(deg) {
+            const root = getModelRoot();
+            if (root) {
+                if (typeof root.rotation === 'object' && 'y' in root.rotation) {
+                    // some runtimes use Euler
+                    root.rotation.y += deg * Math.PI / 180;
+                } else if ('quaternion' in root) {
+                    // approximate via yaw-only quaternion multiplication if supported - skip complexity
+                    showTransientNote("Rotation applied where supported only.");
+                }
+            } else {
+                showTransientNote("Fine rotation not available in this browser/AR runtime.");
+            }
+        }
+
+        function applyScale(factor) {
+            const root = getModelRoot();
+            if (root) {
+                if ('scale' in root) {
+                    root.scale.x *= factor;
+                    root.scale.y *= factor;
+                    root.scale.z *= factor;
+                }
+            } else {
+                // non-AR feedback: scale the preview element (visual-only)
+                mv.style.transformOrigin = '50% 50%';
+                const prev = parseFloat(mv.dataset._previewScale || "1");
+                const next = prev * factor;
+                mv.dataset._previewScale = next;
+                mv.style.transform = `scale(${next})`;
+                showTransientNote("Scale applied to preview (AR runtime support may vary).");
+            }
+        }
+
+        // Transient small user notes
+        let noteTimeout = null;
+        function showTransientNote(msg) {
+            const el = document.getElementById('fine-note');
+            if (!el) return;
+            el.innerText = msg;
+            clearTimeout(noteTimeout);
+            noteTimeout = setTimeout(() => {
+                el.innerText = "Tap AR to place. Fine controls try to apply in AR if supported.";
+            }, 2000);
+        }
+
+        // Fine controls wiring
+        document.getElementById('nudge-left').addEventListener('click', () => applyNudge(-0.05, 0));
+        document.getElementById('nudge-right').addEventListener('click', () => applyNudge(0.05, 0));
+        document.getElementById('nudge-forward').addEventListener('click', () => applyNudge(0, -0.05));
+        document.getElementById('nudge-back').addEventListener('click', () => applyNudge(0, 0.05));
+        document.getElementById('rotate-left').addEventListener('click', () => applyRotate(-15));
+        document.getElementById('rotate-right').addEventListener('click', () => applyRotate(15));
+        const scaleRange = document.getElementById('scale-range');
+        scaleRange.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            // compute relative factor from last known scale (we keep it simple)
+            const prev = parseFloat(mv.dataset._uiScale || "1");
+            const factor = val / prev;
+            mv.dataset._uiScale = String(val);
+            applyScale(factor);
+        });
+
+        // NEW: "tap to place" - on user click while in AR, move the current model anchor to lastHitPos if available.
+        mv.addEventListener('click', (ev) => {
+            // Only try to reposition if we're in an AR session
+            // model-viewer emits ar-status == session-started earlier; ensure we are in that session
+            if (!inAR) return;
+            if (!lastHitPos) {
+                showTransientNote("No valid floor hit available yet. Move phone to scan more area.");
+                return;
+            }
+            const root = getModelRoot();
+            if (root) {
+                // best-effort place: set position to lastHitPos.
+                if ('position' in root) {
+                    root.position.x = lastHitPos.x;
+                    root.position.y = lastHitPos.y;
+                    root.position.z = lastHitPos.z;
+                    showTransientNote("Placed at scanned floor location.");
+                } else if ('translation' in root) {
+                    root.translation.x = lastHitPos.x;
+                    root.translation.y = lastHitPos.y;
+                    root.translation.z = lastHitPos.z;
+                    showTransientNote("Placed at scanned floor location.");
+                } else {
+                    showTransientNote("Placement not supported in this runtime.");
+                }
+            } else {
+                showTransientNote("Precise placement not available in this browser/AR runtime.");
+            }
+        });
+
+        // NEW: when AR reports hit tests, try to parse details
+        mv.addEventListener('ar-hit-test', (e) => {
+            handleHitTestEvent(e.detail);
+        });
+        mv.addEventListener('ar-hit-test-achieved', (e) => {
+            // older event - it might not include detail but we try
+            statusText.innerText = "Floor locked. Tap to place.";
+            statusText.style.background = "rgba(0, 128, 0, 0.8)";
+            // If details available, use them:
+            if (e.detail) handleHitTestEvent(e.detail);
+            // briefly hide instructions after a short time
+            setTimeout(() => instructions.style.display = "none", 3000);
+        });
+
+        // Keep a lightweight boolean for AR session state
+        let inAR = false;
+
+        mv.addEventListener('ar-status', (event) => {
+            if (event.detail.status === 'session-started') {
+                instructions.style.display = "block";
+                rescanBtn.style.display = "block";
+                inAR = true;
+            } else {
+                instructions.style.display = "none";
+                rescanBtn.style.display = "none";
+                inAR = false;
+            }
+        });
+
+        // NEW: Rescan sets a short pulse and clears samples so scanning restarts
         function rescan() {
-            // Forces the model to reset its hit-test position
             const currentSrc = mv.src;
-            mv.src = ""; // Clear momentarily
+            mv.src = ""; // Clear momentarily to force internal reset
+            hitSamples = [];
+            lastHitPos = null;
+            drawMinimap();
             setTimeout(() => {
                 mv.src = currentSrc;
                 instructions.style.display = "block";
                 statusText.innerText = "Rescanning... find a flat surface.";
                 statusText.style.background = "rgba(0, 0, 0, 0.75)";
-            }, 100);
+                showTransientNote("Rescanning floor. Move phone slowly to map the area.");
+            }, 150);
         }
 
-        mv.addEventListener('ar-status', (event) => {
-            if (event.detail.status === 'session-started') {
-                instructions.style.display = "block";
-                rescanBtn.style.display = "block"; // Show rescan button in AR
-            } else {
-                instructions.style.display = "none";
-                rescanBtn.style.display = "none"; // Hide when leaving AR
-            }
+        // Expose rescan globally (used by inline onclick)
+        window.rescan = rescan;
+
+        // keep minimap responsive on orientation change
+        window.addEventListener('resize', () => {
+            // no-op for fixed minimap size; kept for future extension
         });
 
-        mv.addEventListener('ar-hit-test-achieved', () => {
-            statusText.innerText = "Floor locked. Tap to place.";
-            statusText.style.background = "rgba(0, 128, 0, 0.8)";
-            
-            setTimeout(() => {
-                instructions.style.display = "none";
-            }, 3000);
-        });
+        // initial draw
+        drawMinimap();
+
+        // Accessibility + small UX polish: inform when we cannot apply transforms
+        // (We already show short notes when appropriate.)
+
     </script>
 </body>
+
 </html>

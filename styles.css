@@ -1,0 +1,136 @@
+body {
+	margin: 0;
+	overflow: hidden;
+	font-family: sans-serif;
+}
+
+model-viewer {
+	width: 100vw;
+	height: 100vh;
+	background-color: #f0f0f0;
+}
+
+/* Slider UI */
+.slider {
+	position: fixed;
+	bottom: 140px;
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	gap: 15px;
+	z-index: 1000;
+}
+
+.slide {
+	width: 70px;
+	height: 70px;
+	background: white;
+	border-radius: 12px;
+	border: 3px solid white;
+	cursor: pointer;
+	background-size: cover;
+	background-position: center;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Launch Button */
+#ar-button {
+	background-color: #4285f4;
+	color: white;
+	border-radius: 30px;
+	border: none;
+	position: absolute;
+	bottom: 45px;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 15px 35px;
+	font-weight: bold;
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+	z-index: 1001;
+}
+
+/* NEW: Rescan Button - only visible during AR */
+#rescan-button {
+	display: none;
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	background: rgba(255, 255, 255, 0.9);
+	color: #333;
+	border: none;
+	padding: 10px 15px;
+	border-radius: 8px;
+	font-weight: bold;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+	z-index: 2001;
+	cursor: pointer;
+}
+
+/* Calibration Instructions */
+#instructions {
+	display: none;
+	position: fixed;
+	top: 20%;
+	width: 100%;
+	text-align: center;
+	z-index: 2000;
+}
+
+#instructions p {
+	background: rgba(0, 0, 0, 0.75);
+	color: white;
+	display: inline-block;
+	padding: 12px 25px;
+	border-radius: 25px;
+	font-size: 14px;
+}
+
+/* NEW: Minimap / floor hull overlay (top-left) */
+#floor-minimap {
+	position: fixed;
+	top: 12px;
+	left: 12px;
+	width: 160px;
+	height: 160px;
+	background: rgba(0, 0, 0, 0.45);
+	border-radius: 8px;
+	z-index: 3000;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+	pointer-events: none;
+}
+
+/* NEW: Fine-position controls (compact) */
+#fine-controls {
+	position: fixed;
+	bottom: 105px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	z-index: 2002;
+	background: rgba(255, 255, 255, 0.95);
+	padding: 8px 10px;
+	border-radius: 12px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	font-size: 13px;
+}
+
+#fine-controls button {
+	background: #fff;
+	border: 1px solid #ddd;
+	padding: 6px 8px;
+	border-radius: 8px;
+	cursor: pointer;
+}
+
+#fine-controls input[type="range"] {
+	width: 110px;
+}
+
+#fine-controls .note {
+	font-size: 11px;
+	color: #333;
+	opacity: 0.8;
+	margin-left: 8px;
+}
