@@ -372,15 +372,27 @@
 
         // AR session state
         mv.addEventListener('ar-status', (event) => {
-            if (event.detail.status === 'session-started') {
+            const started = event.detail && event.detail.status === 'session-started';
+            inAR = !!started;
+
+            if (started) {
+                // AR session started
                 instructions.style.display = "block";
                 rescanBtn.style.display = "block";
-                inAR = true;
-                showOverlay(floorSelectOverlay);
+                previewBadge.style.display = 'none';
+
+                // If floor not yet mapped and not already mapping, show the instruct overlay
+                if (!floorMapped && !mappingInProgress) {
+                    showOverlay(floorSelectOverlay);
+                } else {
+                    hideOverlay(floorSelectOverlay);
+                }
+                // mapping overlay visibility is controlled by start/finish mapping functions
             } else {
+                // AR session ended
                 instructions.style.display = "none";
                 rescanBtn.style.display = "none";
-                inAR = false;
+                previewBadge.style.display = 'block';
                 hideOverlay(floorSelectOverlay);
                 hideOverlay(floorMappingOverlay);
             }
@@ -441,21 +453,31 @@
             else hideOverlay(floorSelectOverlay);
         });
 
-        // Hide preview badge during real AR sessions, show it again when not in AR
+        // Consolidated AR session handler (use this single one)
         mv.addEventListener('ar-status', (event) => {
-            if (event.detail.status === 'session-started') {
-                previewBadge.style.display = 'none';
-                instructions.style.display = "none";
-                rescanBtn.style.display = "none";
-                inAR = true;
-                hideOverlay(floorSelectOverlay);
-                hideOverlay(floorMappingOverlay);
-            } else {
-                previewBadge.style.display = 'block';
+            const started = event.detail && event.detail.status === 'session-started';
+            inAR = !!started;
+
+            if (started) {
+                // AR session started
                 instructions.style.display = "block";
                 rescanBtn.style.display = "block";
-                inAR = false;
-                showOverlay(floorSelectOverlay);
+                previewBadge.style.display = 'none';
+
+                // If floor not yet mapped and not already mapping, show the instruct overlay
+                if (!floorMapped && !mappingInProgress) {
+                    showOverlay(floorSelectOverlay);
+                } else {
+                    hideOverlay(floorSelectOverlay);
+                }
+                // mapping overlay visibility is controlled by start/finish mapping functions
+            } else {
+                // AR session ended
+                instructions.style.display = "none";
+                rescanBtn.style.display = "none";
+                previewBadge.style.display = 'block';
+                hideOverlay(floorSelectOverlay);
+                hideOverlay(floorMappingOverlay);
             }
         });
 
