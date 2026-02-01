@@ -100,7 +100,7 @@ model-viewer {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
     text-align: center;
     pointer-events: none;
-    /* avoid stealing taps from AR view */
+    /* allow taps to pass through to AR view */
 }
 
 .overlay .overlay-inner p {

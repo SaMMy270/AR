@@ -38,6 +38,25 @@
 
     </model-viewer>
 
+    <!-- Overlay: instruct user to tap the floor to mark it (mobile-friendly, small) -->
+    <div id="floor-select-overlay" class="overlay hidden" aria-hidden="true">
+        <div class="overlay-inner">
+            <p>Tap the floor in AR to mark your floor area</p>
+            <small>We'll map nearby floor points automatically.</small>
+        </div>
+    </div>
+
+    <!-- Mapping overlay with spinner & progress -->
+    <div id="floor-mapping-overlay" class="overlay hidden" aria-hidden="true">
+        <div class="overlay-inner">
+            <div class="spinner" aria-hidden="true"></div>
+            <p id="mapping-status">Mapping floor…</p>
+            <div id="mapping-progress" class="progress">
+                <div class="progress-bar" style="width:0%"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const mv = document.querySelector("#room-stager");
         const instructions = document.querySelector("#instructions");
@@ -53,6 +72,19 @@
         let emaPos = null; // exponential moving average of raw hit positions
         const EMA_ALPHA = 0.25; // smoothing factor
         let inAR = false;
+
+        // add tracking for last hit (used to seed mapping)
+        let lastHitPos = null;
+
+        // Mapping state
+        let floorMapped = false;
+        let floorHull = null; // [{x,z},...]
+        let mappingInProgress = false;
+        let mappingSeed = null;
+        let mappingSamples = [];
+        const MAPPING_DURATION = 1800; // ms
+        const MAPPING_RADIUS = 1.5; // meters around seed to accept samples
+        const MAPPING_MIN_SAMPLES = 20;
 
         function changeModel(path) {
             mv.src = path;
@@ -137,6 +169,114 @@
             return { plane: refined, inliers };
         }
 
+        // Utils: convex hull (monotone chain) and point-in-polygon (ray-cast)
+        function convexHull2D(points) {
+            if (!points || points.length <= 2) return points.slice();
+            const pts = points.slice().sort((a, b) => a.x === b.x ? a.z - b.z : a.x - b.x);
+            const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+            const lower = [];
+            for (const p of pts) {
+                while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+                lower.push(p);
+            }
+            const upper = [];
+            for (let i = pts.length - 1; i >= 0; i--) {
+                while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pts[i]) <= 0) upper.pop();
+                upper.push(pts[i]);
+            }
+            lower.pop(); upper.pop();
+            return lower.concat(upper);
+        }
+
+        function pointInPolygon(x, z, poly) {
+            if (!poly || poly.length === 0) return false;
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, zi = poly[i].z;
+                const xj = poly[j].x, zj = poly[j].z;
+                const intersect = ((zi > z) !== (zj > z)) &&
+                    (x < (xj - xi) * (z - zi) / (zj - zi + 1e-12) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function acceptMappingSample(x, y, z) {
+            if (!mappingInProgress || !mappingSeed) return;
+            const dx = x - mappingSeed.x;
+            const dz = z - mappingSeed.z;
+            if ((dx * dx + dz * dz) <= (MAPPING_RADIUS * MAPPING_RADIUS)) {
+                mappingSamples.push({ x, y, z });
+                if (mappingSamples.length > 500) mappingSamples.shift();
+            }
+        }
+
+        // UI overlay helpers (small, mobile-friendly)
+        const floorSelectOverlay = document.getElementById('floor-select-overlay');
+        const floorMappingOverlay = document.getElementById('floor-mapping-overlay');
+        const mappingStatus = document.getElementById('mapping-status');
+        const mappingProgressBar = document.querySelector('#mapping-progress .progress-bar');
+
+        // replaced to also update aria-hidden so overlays don't block input and are accessible
+        function showOverlay(el) {
+            el.classList.remove('hidden');
+            el.setAttribute('aria-hidden', 'false');
+        }
+        function hideOverlay(el) {
+            el.classList.add('hidden');
+            el.setAttribute('aria-hidden', 'true');
+        }
+
+        // mapping lifecycle
+        function startFloorMapping(seedX, seedZ) {
+            if (mappingInProgress) return;
+            mappingInProgress = true;
+            mappingSeed = { x: seedX, z: seedZ };
+            mappingSamples = [];
+            showOverlay(floorMappingOverlay);
+            mappingStatus.innerText = "Mapping floor…";
+            mappingProgressBar.style.width = "0%";
+
+            const start = performance.now();
+            const tick = () => {
+                const now = performance.now();
+                const elapsed = now - start;
+                const pct = Math.min(1, elapsed / MAPPING_DURATION);
+                mappingProgressBar.style.width = (pct * 100 | 0) + "%";
+                if (elapsed >= MAPPING_DURATION || mappingSamples.length >= MAPPING_MIN_SAMPLES) {
+                    finishFloorMapping();
+                } else if (mappingInProgress) {
+                    requestAnimationFrame(tick);
+                }
+            };
+            requestAnimationFrame(tick);
+        }
+
+        function finishFloorMapping() {
+            mappingInProgress = false;
+            hideOverlay(floorMappingOverlay);
+            const pts = mappingSamples.map(s => ({ x: s.x, z: s.z }));
+            if (pts.length < Math.max(8, MAPPING_MIN_SAMPLES)) {
+                showTransientNote("Not enough data to map floor. Try again.");
+                floorMapped = false;
+                showOverlay(floorSelectOverlay);
+                return;
+            }
+            const hull = convexHull2D(pts);
+            if (hull.length < 3) {
+                showTransientNote("Failed to map floor boundary. Try again.");
+                floorMapped = false;
+                showOverlay(floorSelectOverlay);
+                return;
+            }
+            floorHull = hull;
+            floorMapped = true;
+            showTransientNote("Floor mapped. You can now place objects inside the boundary.");
+            hideOverlay(floorSelectOverlay);
+            statusText.innerText = "Floor mapped. Tap inside area to place.";
+            statusText.style.background = "rgba(0,128,0,0.8)";
+        }
+
         // Handle various hit-test detail shapes and add sample
         function handleHitTestEvent(detail) {
             if (!detail) return;
@@ -153,6 +293,8 @@
             } else {
                 return;
             }
+            lastHitPos = { x, y, z }; // set last hit position
+            acceptMappingSample(x, y, z); // accept sample for mapping
             pushSample(x, y, z);
             // update EMA for smoother placement anchor
             if (!emaPos) emaPos = { x, y, z };
@@ -180,30 +322,41 @@
         // Tap to place: project EMA position onto the fitted plane for accurate snap
         mv.addEventListener('click', (ev) => {
             if (!inAR) return;
-            if (!lastPlane || !emaPos) {
-                showTransientNote("No valid floor plane yet. Move phone to scan more area.");
+            if (!floorMapped && !mappingInProgress) {
+                if (!lastHitPos) {
+                    showTransientNote("No valid floor hit yet. Move phone to scan more area.");
+                    return;
+                }
+                hideOverlay(floorSelectOverlay);
+                startFloorMapping(lastHitPos.x, lastHitPos.z);
                 return;
             }
-            const targetX = emaPos.x;
-            const targetZ = emaPos.z;
-            const targetY = projectYOnPlane(targetX, targetZ, lastPlane);
-            const root = getModelRoot();
-            if (root) {
-                if ('position' in root) {
-                    root.position.x = targetX;
-                    root.position.y = targetY;
-                    root.position.z = targetZ;
-                    showTransientNote("Placed on detected floor plane.");
-                } else if ('translation' in root) {
-                    root.translation.x = targetX;
-                    root.translation.y = targetY;
-                    root.translation.z = targetZ;
-                    showTransientNote("Placed on detected floor plane.");
-                } else {
-                    showTransientNote("Placement not supported in this runtime.");
+            if (mappingInProgress) return; // ignore taps while mapping
+            if (floorMapped) {
+                if (!lastPlane || !emaPos) {
+                    showTransientNote("No valid floor plane yet. Move phone to scan more area.");
+                    return;
                 }
-            } else {
-                showTransientNote("Placement not available in this browser/AR runtime.");
+                const targetX = emaPos.x, targetZ = emaPos.z;
+                if (!pointInPolygon(targetX, targetZ, floorHull)) {
+                    showTransientNote("Placement outside mapped floor boundary is not allowed.");
+                    return;
+                }
+                const targetY = projectYOnPlane(targetX, targetZ, lastPlane);
+                const root = getModelRoot();
+                if (root) {
+                    if ('position' in root) {
+                        root.position.x = targetX;
+                        root.position.y = targetY;
+                        root.position.z = targetZ;
+                        showTransientNote("Placed on detected floor.");
+                    } else if ('translation' in root) {
+                        root.translation.x = targetX;
+                        root.translation.y = targetY;
+                        root.translation.z = targetZ;
+                        showTransientNote("Placed on detected floor.");
+                    } else showTransientNote("Placement not supported in this runtime.");
+                } else showTransientNote("Placement not available in this browser/AR runtime.");
             }
         });
 
@@ -220,10 +373,13 @@
                 instructions.style.display = "block";
                 rescanBtn.style.display = "block";
                 inAR = true;
+                showOverlay(floorSelectOverlay);
             } else {
                 instructions.style.display = "none";
                 rescanBtn.style.display = "none";
                 inAR = false;
+                hideOverlay(floorSelectOverlay);
+                hideOverlay(floorMappingOverlay);
             }
         });
 
@@ -259,6 +415,7 @@
             hitSamples = [];
             lastPlane = null;
             emaPos = null;
+            mappingSamples = []; lastPlane = null; emaPos = null; mappingInProgress = false; floorMapped = false; floorHull = null;
             setTimeout(() => {
                 mv.src = currentSrc;
                 instructions.style.display = "block";
