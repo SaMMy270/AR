@@ -34,24 +34,9 @@
                 onclick="changeModel('models/single_bed-v1.glb')"></div>
             <div class="slide" style="background-image: url('./images/gamingchair.webp')"
                 onclick="changeModel('models/gaming_chair-v1.glb')"></div>
-            <div </div>
+        </div>
 
     </model-viewer>
-
-    <!-- NEW: Minimap top-down view for sampled floor points (lightweight) -->
-    <canvas id="floor-minimap" width="160" height="160" aria-hidden="true"></canvas>
-
-    <!-- NEW: Fine position controls -->
-    <div id="fine-controls" aria-hidden="false">
-        <button id="nudge-left" title="Move left">◀</button>
-        <button id="nudge-right" title="Move right">▶</button>
-        <button id="nudge-forward" title="Move forward">▲</button>
-        <button id="nudge-back" title="Move back">▼</button>
-        <button id="rotate-left" title="Rotate -15°">⟲</button>
-        <button id="rotate-right" title="Rotate +15°">⟳</button>
-        <input id="scale-range" type="range" min="0.5" max="2" step="0.05" value="1" title="Scale">
-        <div class="note" id="fine-note">Tap AR to place. Fine controls try to apply in AR if supported.</div>
-    </div>
 
     <script>
         const mv = document.querySelector("#room-stager");
@@ -59,276 +44,177 @@
         const statusText = document.querySelector("#instruction-text");
         const rescanBtn = document.querySelector("#rescan-button");
 
-        // NEW: Minimap context + hit sample buffer (lightweight)
-        const minimap = document.querySelector('#floor-minimap');
-        const ctx = minimap.getContext('2d');
-        let hitSamples = []; // keep small number for lightweightness
+        // Samples buffer (lightweight)
+        let hitSamples = [];
         const MAX_SAMPLES = 300;
-
-        // Helper: push sample (world x,z) and keep recent ones
-        function pushSample(x, z) {
-            hitSamples.push({ x, z });
-            if (hitSamples.length > MAX_SAMPLES) hitSamples.shift();
-            drawMinimap();
-        }
-
-        // Convex hull (Monotone Chain) - 2D for x,z
-        function convexHull(points) {
-            if (points.length <= 2) return points.slice();
-            // copy & sort by x then z
-            const pts = points.slice().sort((a, b) => a.x === b.x ? a.z - b.z : a.x - b.x);
-            const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
-            const lower = [];
-            for (const p of pts) {
-                while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
-                lower.push(p);
-            }
-            const upper = [];
-            for (let i = pts.length - 1; i >= 0; i--) {
-                const p = pts[i];
-                while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
-                upper.push(p);
-            }
-            lower.pop(); upper.pop();
-            return lower.concat(upper);
-        }
-
-        // Draw a small top-down minimap (pure top-down XZ visualization)
-        function drawMinimap() {
-            ctx.clearRect(0, 0, minimap.width, minimap.height);
-            if (hitSamples.length === 0) return;
-            // compute bounds
-            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-            for (const p of hitSamples) {
-                if (p.x < minX) minX = p.x;
-                if (p.x > maxX) maxX = p.x;
-                if (p.z < minZ) minZ = p.z;
-                if (p.z > maxZ) maxZ = p.z;
-            }
-            // pad bounds
-            const pad = 0.25 * Math.max(maxX - minX || 1, maxZ - minZ || 1);
-            minX -= pad; maxX += pad; minZ -= pad; maxZ += pad;
-            const scaleX = (minimap.width - 8) / (maxX - minX || 1);
-            const scaleZ = (minimap.height - 8) / (maxZ - minZ || 1);
-
-            // draw samples
-            ctx.fillStyle = "rgba(0,200,150,0.08)";
-            ctx.strokeStyle = "rgba(0,200,150,0.25)";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            for (const p of hitSamples) {
-                const sx = 4 + (p.x - minX) * scaleX;
-                const sz = 4 + (maxZ - p.z) * scaleZ; // invert z for screen Y
-                ctx.fillRect(sx - 1, sz - 1, 2, 2);
-            }
-            ctx.fill();
-
-            // hull
-            const hull = convexHull(hitSamples);
-            if (hull.length > 1) {
-                ctx.fillStyle = "rgba(255,160,0,0.12)";
-                ctx.strokeStyle = "rgba(255,160,0,0.9)";
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                for (let i = 0; i < hull.length; i++) {
-                    const p = hull[i];
-                    const sx = 4 + (p.x - minX) * scaleX;
-                    const sz = 4 + (maxZ - p.z) * scaleZ;
-                    if (i === 0) ctx.moveTo(sx, sz);
-                    else ctx.lineTo(sx, sz);
-                }
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            }
-
-            // center marker
-            ctx.fillStyle = "rgba(255,255,255,0.9)";
-            ctx.strokeStyle = "rgba(0,0,0,0.5)";
-            ctx.beginPath();
-            ctx.arc(minimap.width / 2, minimap.height / 2, 3, 0, Math.PI * 2);
-            ctx.fill(); ctx.stroke();
-        }
-
-        // Try to extract world coordinates from hit-test events (best-effort)
-        let lastHitPos = null; // {x,y,z}
-        function handleHitTestEvent(detail) {
-            // Best-effort: model-viewer may provide detail.position (x,y,z) or matrix/transform
-            if (!detail) return;
-            if (detail.position && typeof detail.position.x === 'number') {
-                const p = detail.position;
-                lastHitPos = { x: p.x, y: p.y, z: p.z };
-                pushSample(p.x, p.z);
-            } else if (detail.hitMatrix && detail.hitMatrix.length >= 3) {
-                // If a matrix is given, extract translation from it if it follows column-major or row-major.
-                // Best-effort extraction (works in many engines).
-                const m = detail.hitMatrix;
-                const x = m[12] ?? m[3] ?? 0;
-                const y = m[13] ?? m[7] ?? 0;
-                const z = m[14] ?? m[11] ?? 0;
-                lastHitPos = { x, y, z };
-                pushSample(x, z);
-            } else if (detail.transform) {
-                // Some runtimes use transform.position
-                const t = detail.transform;
-                if (t.position && typeof t.position.x === 'number') {
-                    lastHitPos = { x: t.position.x, y: t.position.y, z: t.position.z };
-                    pushSample(lastHitPos.x, lastHitPos.z);
-                }
-            }
-        }
+        const MIN_PLANE_SAMPLES = 8;
+        const INLIER_THRESHOLD = 0.08; // 8 cm tolerance for inliers
+        let lastPlane = null; // {a,b,c} for y = a*x + b*z + c
+        let emaPos = null; // exponential moving average of raw hit positions
+        const EMA_ALPHA = 0.25; // smoothing factor
+        let inAR = false;
 
         function changeModel(path) {
             mv.src = path;
         }
 
-        // NEW: Fine transform helpers that attempt to mutate the placed model.
-        // This uses model-viewer hosted model if available (works in many environments).
-        // If not available, we gracefully inform the user.
-        function getModelRoot() {
-            // Try several known internal properties (best-effort).
-            // Many modern model-viewer builds expose mv.model with a scene root.
-            try {
-                if (mv.model && mv.model.scene) return mv.model.scene;
-                if (mv.getModel && mv.getModel()) {
-                    const m = mv.getModel();
-                    if (m.scene) return m.scene;
-                    if (m.scenes && m.scenes[0]) return m.scenes[0];
-                }
-                // fallback: some builds expose _scene
-                if (mv._scene && mv._scene.root) return mv._scene.root;
-            } catch (e) {
-                // silent
-            }
-            return null;
+        function pushSample(x, y, z) {
+            hitSamples.push({ x, y, z });
+            if (hitSamples.length > MAX_SAMPLES) hitSamples.shift();
         }
 
-        function applyNudge(dx = 0, dz = 0) {
-            const root = getModelRoot();
-            if (root) {
-                // Many runtimes expose Three-like position
-                if ('position' in root) {
-                    root.position.x += dx;
-                    root.position.z += dz;
-                } else if ('translation' in root) {
-                    root.translation.x += dx;
-                    root.translation.z += dz;
+        // Solve 3x3 linear system by Gaussian elimination (small, fast)
+        function solve3(A, b) {
+            const M = [
+                [A[0][0], A[0][1], A[0][2], b[0]],
+                [A[1][0], A[1][1], A[1][2], b[1]],
+                [A[2][0], A[2][1], A[2][2], b[2]]
+            ];
+            for (let i = 0; i < 3; i++) {
+                // pivot
+                let maxRow = i;
+                for (let r = i + 1; r < 3; r++) if (Math.abs(M[r][i]) > Math.abs(M[maxRow][i])) maxRow = r;
+                if (Math.abs(M[maxRow][i]) < 1e-12) return null; // singular
+                if (maxRow !== i) { const tmp = M[i]; M[i] = M[maxRow]; M[maxRow] = tmp; }
+                // normalize
+                const pivot = M[i][i];
+                for (let c = i; c < 4; c++) M[i][c] /= pivot;
+                // eliminate
+                for (let r = 0; r < 3; r++) {
+                    if (r === i) continue;
+                    const factor = M[r][i];
+                    for (let c = i; c < 4; c++) M[r][c] -= factor * M[i][c];
                 }
+            }
+            return [M[0][3], M[1][3], M[2][3]];
+        }
+
+        // Fit plane y = a*x + b*z + c with least squares
+        function fitPlane(samples) {
+            if (!samples || samples.length < 3) return null;
+            let Sxx = 0, Sxz = 0, Sx = 0, Szz = 0, Sz = 0, Sxy = 0, Szy = 0, Sy = 0;
+            const N = samples.length;
+            for (const p of samples) {
+                const x = p.x, z = p.z, y = p.y;
+                Sxx += x * x;
+                Sxz += x * z;
+                Sx += x;
+                Szz += z * z;
+                Sz += z;
+                Sxy += x * y;
+                Szy += z * y;
+                Sy += y;
+            }
+            const A = [
+                [Sxx, Sxz, Sx],
+                [Sxz, Szz, Sz],
+                [Sx, Sz, N]
+            ];
+            const B = [Sxy, Szy, Sy];
+            const sol = solve3(A, B);
+            if (!sol) return null;
+            const [a, b, c] = sol;
+            return { a, b, c };
+        }
+
+        function projectYOnPlane(x, z, plane) {
+            return plane.a * x + plane.b * z + plane.c;
+        }
+
+        // Robust one-pass inlier selection + refit
+        function robustFit(samples) {
+            if (samples.length < MIN_PLANE_SAMPLES) return null;
+            let plane = fitPlane(samples);
+            if (!plane) return null;
+            // compute inliers
+            const inliers = samples.filter(s => Math.abs(projectYOnPlane(s.x, s.z, plane) - s.y) <= INLIER_THRESHOLD);
+            if (inliers.length < Math.max(6, Math.floor(0.5 * samples.length))) {
+                // Not enough inliers yet
+                return null;
+            }
+            // refit with inliers
+            const refined = fitPlane(inliers) || plane;
+            return { plane: refined, inliers };
+        }
+
+        // Handle various hit-test detail shapes and add sample
+        function handleHitTestEvent(detail) {
+            if (!detail) return;
+            let x, y, z;
+            if (detail.position && typeof detail.position.x === 'number') {
+                x = detail.position.x; y = detail.position.y; z = detail.position.z;
+            } else if (detail.hitMatrix && detail.hitMatrix.length >= 3) {
+                const m = detail.hitMatrix;
+                x = m[12] ?? m[3] ?? 0;
+                y = m[13] ?? m[7] ?? 0;
+                z = m[14] ?? m[11] ?? 0;
+            } else if (detail.transform && detail.transform.position) {
+                x = detail.transform.position.x; y = detail.transform.position.y; z = detail.transform.position.z;
             } else {
-                showTransientNote("Fine position adjustment not available in this browser/AR runtime.");
-            }
-        }
-
-        function applyRotate(deg) {
-            const root = getModelRoot();
-            if (root) {
-                if (typeof root.rotation === 'object' && 'y' in root.rotation) {
-                    // some runtimes use Euler
-                    root.rotation.y += deg * Math.PI / 180;
-                } else if ('quaternion' in root) {
-                    // approximate via yaw-only quaternion multiplication if supported - skip complexity
-                    showTransientNote("Rotation applied where supported only.");
-                }
-            } else {
-                showTransientNote("Fine rotation not available in this browser/AR runtime.");
-            }
-        }
-
-        function applyScale(factor) {
-            const root = getModelRoot();
-            if (root) {
-                if ('scale' in root) {
-                    root.scale.x *= factor;
-                    root.scale.y *= factor;
-                    root.scale.z *= factor;
-                }
-            } else {
-                // non-AR feedback: scale the preview element (visual-only)
-                mv.style.transformOrigin = '50% 50%';
-                const prev = parseFloat(mv.dataset._previewScale || "1");
-                const next = prev * factor;
-                mv.dataset._previewScale = next;
-                mv.style.transform = `scale(${next})`;
-                showTransientNote("Scale applied to preview (AR runtime support may vary).");
-            }
-        }
-
-        // Transient small user notes
-        let noteTimeout = null;
-        function showTransientNote(msg) {
-            const el = document.getElementById('fine-note');
-            if (!el) return;
-            el.innerText = msg;
-            clearTimeout(noteTimeout);
-            noteTimeout = setTimeout(() => {
-                el.innerText = "Tap AR to place. Fine controls try to apply in AR if supported.";
-            }, 2000);
-        }
-
-        // Fine controls wiring
-        document.getElementById('nudge-left').addEventListener('click', () => applyNudge(-0.05, 0));
-        document.getElementById('nudge-right').addEventListener('click', () => applyNudge(0.05, 0));
-        document.getElementById('nudge-forward').addEventListener('click', () => applyNudge(0, -0.05));
-        document.getElementById('nudge-back').addEventListener('click', () => applyNudge(0, 0.05));
-        document.getElementById('rotate-left').addEventListener('click', () => applyRotate(-15));
-        document.getElementById('rotate-right').addEventListener('click', () => applyRotate(15));
-        const scaleRange = document.getElementById('scale-range');
-        scaleRange.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            // compute relative factor from last known scale (we keep it simple)
-            const prev = parseFloat(mv.dataset._uiScale || "1");
-            const factor = val / prev;
-            mv.dataset._uiScale = String(val);
-            applyScale(factor);
-        });
-
-        // NEW: "tap to place" - on user click while in AR, move the current model anchor to lastHitPos if available.
-        mv.addEventListener('click', (ev) => {
-            // Only try to reposition if we're in an AR session
-            // model-viewer emits ar-status == session-started earlier; ensure we are in that session
-            if (!inAR) return;
-            if (!lastHitPos) {
-                showTransientNote("No valid floor hit available yet. Move phone to scan more area.");
                 return;
             }
+            pushSample(x, y, z);
+            // update EMA for smoother placement anchor
+            if (!emaPos) emaPos = { x, y, z };
+            else {
+                emaPos.x = emaPos.x * (1 - EMA_ALPHA) + x * EMA_ALPHA;
+                emaPos.y = emaPos.y * (1 - EMA_ALPHA) + y * EMA_ALPHA;
+                emaPos.z = emaPos.z * (1 - EMA_ALPHA) + z * EMA_ALPHA;
+            }
+
+            // attempt robust plane fit when sufficient samples
+            const fit = robustFit(hitSamples);
+            if (fit && fit.plane) {
+                lastPlane = fit.plane;
+                statusText.innerText = "Floor locked. Tap to place.";
+                statusText.style.background = "rgba(0, 128, 0, 0.8)";
+                setTimeout(() => instructions.style.display = "none", 1200);
+            } else {
+                lastPlane = null;
+                statusText.innerText = "Scanning floor... move phone side-to-side.";
+                statusText.style.background = "rgba(0, 0, 0, 0.75)";
+                instructions.style.display = "block";
+            }
+        }
+
+        // Tap to place: project EMA position onto the fitted plane for accurate snap
+        mv.addEventListener('click', (ev) => {
+            if (!inAR) return;
+            if (!lastPlane || !emaPos) {
+                showTransientNote("No valid floor plane yet. Move phone to scan more area.");
+                return;
+            }
+            const targetX = emaPos.x;
+            const targetZ = emaPos.z;
+            const targetY = projectYOnPlane(targetX, targetZ, lastPlane);
             const root = getModelRoot();
             if (root) {
-                // best-effort place: set position to lastHitPos.
                 if ('position' in root) {
-                    root.position.x = lastHitPos.x;
-                    root.position.y = lastHitPos.y;
-                    root.position.z = lastHitPos.z;
-                    showTransientNote("Placed at scanned floor location.");
+                    root.position.x = targetX;
+                    root.position.y = targetY;
+                    root.position.z = targetZ;
+                    showTransientNote("Placed on detected floor plane.");
                 } else if ('translation' in root) {
-                    root.translation.x = lastHitPos.x;
-                    root.translation.y = lastHitPos.y;
-                    root.translation.z = lastHitPos.z;
-                    showTransientNote("Placed at scanned floor location.");
+                    root.translation.x = targetX;
+                    root.translation.y = targetY;
+                    root.translation.z = targetZ;
+                    showTransientNote("Placed on detected floor plane.");
                 } else {
                     showTransientNote("Placement not supported in this runtime.");
                 }
             } else {
-                showTransientNote("Precise placement not available in this browser/AR runtime.");
+                showTransientNote("Placement not available in this browser/AR runtime.");
             }
         });
 
-        // NEW: when AR reports hit tests, try to parse details
-        mv.addEventListener('ar-hit-test', (e) => {
-            handleHitTestEvent(e.detail);
-        });
+        // Hook hit-test events
+        mv.addEventListener('ar-hit-test', (e) => handleHitTestEvent(e.detail));
         mv.addEventListener('ar-hit-test-achieved', (e) => {
-            // older event - it might not include detail but we try
-            statusText.innerText = "Floor locked. Tap to place.";
-            statusText.style.background = "rgba(0, 128, 0, 0.8)";
-            // If details available, use them:
             if (e.detail) handleHitTestEvent(e.detail);
-            // briefly hide instructions after a short time
-            setTimeout(() => instructions.style.display = "none", 3000);
+            // the status text handling is in handleHitTestEvent
         });
 
-        // Keep a lightweight boolean for AR session state
-        let inAR = false;
-
+        // AR session state
         mv.addEventListener('ar-status', (event) => {
             if (event.detail.status === 'session-started') {
                 instructions.style.display = "block";
@@ -341,13 +227,38 @@
             }
         });
 
-        // NEW: Rescan sets a short pulse and clears samples so scanning restarts
+        // Get model root helper (best-effort; unchanged)
+        function getModelRoot() {
+            try {
+                if (mv.model && mv.model.scene) return mv.model.scene;
+                if (mv.getModel && mv.getModel()) {
+                    const m = mv.getModel();
+                    if (m.scene) return m.scene;
+                    if (m.scenes && m.scenes[0]) return m.scenes[0];
+                }
+                if (mv._scene && mv._scene.root) return mv._scene.root;
+            } catch (e) { }
+            return null;
+        }
+
+        // Transient small user notes
+        let noteTimeout = null;
+        function showTransientNote(msg) {
+            // reuse instruction area to keep UI minimal
+            statusText.innerText = msg;
+            clearTimeout(noteTimeout);
+            noteTimeout = setTimeout(() => {
+                statusText.innerText = lastPlane ? "Floor locked. Tap to place." : "Scanning floor... move phone side-to-side.";
+            }, 1800);
+        }
+
+        // Rescan: clear samples and plane state
         function rescan() {
             const currentSrc = mv.src;
             mv.src = ""; // Clear momentarily to force internal reset
             hitSamples = [];
-            lastHitPos = null;
-            drawMinimap();
+            lastPlane = null;
+            emaPos = null;
             setTimeout(() => {
                 mv.src = currentSrc;
                 instructions.style.display = "block";
@@ -357,19 +268,11 @@
             }, 150);
         }
 
-        // Expose rescan globally (used by inline onclick)
         window.rescan = rescan;
 
-        // keep minimap responsive on orientation change
-        window.addEventListener('resize', () => {
-            // no-op for fixed minimap size; kept for future extension
-        });
-
-        // initial draw
-        drawMinimap();
-
-        // Accessibility + small UX polish: inform when we cannot apply transforms
-        // (We already show short notes when appropriate.)
+        // initial status
+        statusText.innerText = "Scanning floor... move phone side-to-side.";
+        statusText.style.background = "rgba(0, 0, 0, 0.75)";
 
     </script>
 </body>
