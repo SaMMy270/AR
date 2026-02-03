@@ -13,20 +13,6 @@
 
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
-    <!-- Dropdown for furniture categories -->
-    <div id="category-dropdown">
-        <label for="category-select">Category:</label>
-        <select id="category-select" onchange="updateFurnitureList()">
-            <option value="sofa">Sofa</option>
-            <option value="table">Table</option>
-            <option value="bed">Bed</option>
-            <option value="chair">Chair</option>
-        </select>
-    </div>
-
-    <!-- Delete button -->
-    <button id="delete-button" onclick="deleteFurniture()">Delete</button>
-
     <!-- AR View -->
     <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed"
         ar-hit-test initial-placement="floor" interpolation-decay="200" camera-controls shadow-intensity="2"
@@ -34,84 +20,63 @@
 
         <button slot="ar-button" id="ar-button">✨ VIEW IN YOUR ROOM</button>
 
-        <button id="rescan-button" onclick="rescan()">🔄 RESCAN FLOOR</button>
-
-        <div id="instructions">
-            <p id="instruction-text">Scanning floor... move phone side-to-side.</p>
-        </div>
-
-        <div class="slider">
-            <div class="slide" style="background-image: url('./images/sofa.jpg')"
-                onclick="changeModel('models/sofa-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/table1.webp')"
-                onclick="changeModel('models/study_table-v2.glb')"></div>
-            <div class="slide" style="background-image: url('./images/bed1.jpg')"
-                onclick="changeModel('models/single_bed-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/gamingchair.webp')"
-                onclick="changeModel('models/gaming_chair-v1.glb')"></div>
-        </div>
-
     </model-viewer>
 
-    <!-- Overlay: instruct user to tap the floor to mark it (mobile-friendly, small) -->
-    <div id="floor-select-overlay" class="overlay hidden" aria-hidden="true">
-        <div class="overlay-inner">
-            <p>Tap the floor in AR to mark your floor area</p>
-            <small>We'll map nearby floor points automatically.</small>
+    <!-- UI elements for AR session -->
+    <div id="ar-ui" class="hidden">
+        <!-- Dropdown for furniture categories -->
+        <div id="category-dropdown">
+            <label for="category-select">Category:</label>
+            <select id="category-select" onchange="updateFurnitureList()">
+                <option value="sofa">Sofa</option>
+                <option value="table">Table</option>
+                <option value="bed">Bed</option>
+                <option value="chair">Chair</option>
+            </select>
         </div>
-    </div>
 
-    <!-- Mapping overlay with spinner & progress -->
-    <div id="floor-mapping-overlay" class="overlay hidden" aria-hidden="true">
-        <div class="overlay-inner">
-            <div class="spinner" aria-hidden="true"></div>
-            <p id="mapping-status">Mapping floor…</p>
-            <div id="mapping-progress" class="progress">
-                <div class="progress-bar" style="width:0%"></div>
+        <!-- Delete button -->
+        <button id="delete-button" onclick="deleteFurniture()">Delete</button>
+
+        <!-- Furniture list based on category -->
+        <div id="furniture-list">
+            <p>All the furniture depending on the category:</p>
+            <div class="slider">
+                <div class="slide" style="background-image: url('./images/sofa.jpg')"
+                    onclick="changeModel('models/sofa-v1.glb')"></div>
+                <div class="slide" style="background-image: url('./images/table1.webp')"
+                    onclick="changeModel('models/study_table-v2.glb')"></div>
+                <div class="slide" style="background-image: url('./images/bed1.jpg')"
+                    onclick="changeModel('models/single_bed-v1.glb')"></div>
+                <div class="slide" style="background-image: url('./images/gamingchair.webp')"
+                    onclick="changeModel('models/gaming_chair-v1.glb')"></div>
             </div>
         </div>
-    </div>
 
-    <!-- DEBUG: preview badge so you can see/toggle the floor selection overlay outside AR -->
-    <div id="ui-preview-badge" class="ui-preview hidden" aria-hidden="true">Preview: tap to show floor overlay</div>
-
-    <!-- Furniture list based on category -->
-    <div id="furniture-list">
-        <p>All the furniture depending on the category:</p>
-        <div class="slider">
-            <div class="slide" style="background-image: url('./images/sofa.jpg')"
-                onclick="changeModel('models/sofa-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/table1.webp')"
-                onclick="changeModel('models/study_table-v2.glb')"></div>
-            <div class="slide" style="background-image: url('./images/bed1.jpg')"
-                onclick="changeModel('models/single_bed-v1.glb')"></div>
-            <div class="slide" style="background-image: url('./images/gamingchair.webp')"
-                onclick="changeModel('models/gaming_chair-v1.glb')"></div>
+        <!-- Detailed furniture view -->
+        <div id="furniture-details" class="hidden">
+            <h2>AR View</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Furniture Name</th>
+                        <th>Copies</th>
+                        <th>Cost of 1 Furniture x Copies</th>
+                    </tr>
+                </thead>
+                <tbody id="furniture-details-body">
+                    <!-- Dynamic rows will be added here -->
+                </tbody>
+            </table>
+            <p id="total-cost">TOTAL COST: $0</p>
+            <button onclick="addToWishlist()">Add to Wishlist</button>
+            <button onclick="addToCart()">Add to Cart</button>
         </div>
-    </div>
-
-    <!-- Detailed furniture view -->
-    <div id="furniture-details" class="hidden">
-        <h2>AR View</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Furniture Name</th>
-                    <th>Copies</th>
-                    <th>Cost of 1 Furniture x Copies</th>
-                </tr>
-            </thead>
-            <tbody id="furniture-details-body">
-                <!-- Dynamic rows will be added here -->
-            </tbody>
-        </table>
-        <p id="total-cost">TOTAL COST: $0</p>
-        <button onclick="addToWishlist()">Add to Wishlist</button>
-        <button onclick="addToCart()">Add to Cart</button>
     </div>
 
     <script>
         const mv = document.querySelector("#room-stager");
+        const arUI = document.getElementById("ar-ui");
         const instructions = document.querySelector("#instructions");
         const statusText = document.querySelector("#instruction-text");
         const rescanBtn = document.querySelector("#rescan-button");
@@ -430,6 +395,7 @@
                 instructions.style.display = "block";
                 rescanBtn.style.display = "block";
                 previewBadge.style.display = 'block'; // Show preview badge in AR view
+                arUI.classList.remove("hidden"); // Show AR UI elements
 
                 // Automatically start floor mapping if not already mapped or in progress
                 if (!floorMapped && !mappingInProgress) {
@@ -448,6 +414,7 @@
                 previewBadge.style.display = 'none'; // Hide preview badge outside AR view
                 hideOverlay(floorSelectOverlay);
                 hideOverlay(floorMappingOverlay);
+                arUI.classList.add("hidden"); // Hide AR UI elements
             }
         });
 
@@ -516,6 +483,7 @@
                 instructions.style.display = "block";
                 rescanBtn.style.display = "block";
                 previewBadge.style.display = 'block'; // Show preview badge in AR view
+                arUI.classList.remove("hidden"); // Show AR UI elements
 
                 // Automatically start floor mapping if not already mapped or in progress
                 if (!floorMapped && !mappingInProgress) {
@@ -534,6 +502,7 @@
                 previewBadge.style.display = 'none'; // Hide preview badge outside AR view
                 hideOverlay(floorSelectOverlay);
                 hideOverlay(floorMappingOverlay);
+                arUI.classList.add("hidden"); // Hide AR UI elements
             }
         });
 

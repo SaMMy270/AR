@@ -18,6 +18,11 @@ body {
     background-color: #f4f4f9;
 }
 
+/* Hide elements by default */
+.hidden {
+    display: none;
+}
+
 /* Dropdown for furniture categories */
 #category-dropdown {
     margin: 10px;
