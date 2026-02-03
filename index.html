@@ -13,6 +13,21 @@
 
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
+    <!-- Dropdown for furniture categories -->
+    <div id="category-dropdown">
+        <label for="category-select">Category:</label>
+        <select id="category-select" onchange="updateFurnitureList()">
+            <option value="sofa">Sofa</option>
+            <option value="table">Table</option>
+            <option value="bed">Bed</option>
+            <option value="chair">Chair</option>
+        </select>
+    </div>
+
+    <!-- Delete button -->
+    <button id="delete-button" onclick="deleteFurniture()">Delete</button>
+
+    <!-- AR View -->
     <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed"
         ar-hit-test initial-placement="floor" interpolation-decay="200" camera-controls shadow-intensity="2"
         shadow-softness="0" environment-image="neutral">
@@ -58,7 +73,42 @@
     </div>
 
     <!-- DEBUG: preview badge so you can see/toggle the floor selection overlay outside AR -->
-    <div id="ui-preview-badge" class="ui-preview">Preview: tap to show floor overlay</div>
+    <div id="ui-preview-badge" class="ui-preview hidden" aria-hidden="true">Preview: tap to show floor overlay</div>
+
+    <!-- Furniture list based on category -->
+    <div id="furniture-list">
+        <p>All the furniture depending on the category:</p>
+        <div class="slider">
+            <div class="slide" style="background-image: url('./images/sofa.jpg')"
+                onclick="changeModel('models/sofa-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/table1.webp')"
+                onclick="changeModel('models/study_table-v2.glb')"></div>
+            <div class="slide" style="background-image: url('./images/bed1.jpg')"
+                onclick="changeModel('models/single_bed-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/gamingchair.webp')"
+                onclick="changeModel('models/gaming_chair-v1.glb')"></div>
+        </div>
+    </div>
+
+    <!-- Detailed furniture view -->
+    <div id="furniture-details" class="hidden">
+        <h2>AR View</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Furniture Name</th>
+                    <th>Copies</th>
+                    <th>Cost of 1 Furniture x Copies</th>
+                </tr>
+            </thead>
+            <tbody id="furniture-details-body">
+                <!-- Dynamic rows will be added here -->
+            </tbody>
+        </table>
+        <p id="total-cost">TOTAL COST: $0</p>
+        <button onclick="addToWishlist()">Add to Wishlist</button>
+        <button onclick="addToCart()">Add to Cart</button>
+    </div>
 
     <script>
         const mv = document.querySelector("#room-stager");
@@ -379,20 +429,23 @@
                 // AR session started
                 instructions.style.display = "block";
                 rescanBtn.style.display = "block";
-                previewBadge.style.display = 'none';
+                previewBadge.style.display = 'block'; // Show preview badge in AR view
 
-                // If floor not yet mapped and not already mapping, show the instruct overlay
+                // Automatically start floor mapping if not already mapped or in progress
                 if (!floorMapped && !mappingInProgress) {
-                    showOverlay(floorSelectOverlay);
-                } else {
-                    hideOverlay(floorSelectOverlay);
+                    if (lastHitPos) {
+                        startFloorMapping(lastHitPos.x, lastHitPos.z);
+                    } else {
+                        statusText.innerText = "Scanning floor... move phone side-to-side.";
+                        statusText.style.background = "rgba(0, 0, 0, 0.75)";
+                        showOverlay(floorSelectOverlay);
+                    }
                 }
-                // mapping overlay visibility is controlled by start/finish mapping functions
             } else {
                 // AR session ended
                 instructions.style.display = "none";
                 rescanBtn.style.display = "none";
-                previewBadge.style.display = 'block';
+                previewBadge.style.display = 'none'; // Hide preview badge outside AR view
                 hideOverlay(floorSelectOverlay);
                 hideOverlay(floorMappingOverlay);
             }
@@ -446,7 +499,7 @@
         statusText.innerText = "Scanning floor... move phone side-to-side.";
         statusText.style.background = "rgba(0, 0, 0, 0.75)";
 
-        // Preview badge behavior (shows overlay for non-AR testing)
+        // Preview badge behavior (shows overlay for AR testing)
         const previewBadge = document.getElementById('ui-preview-badge');
         previewBadge.addEventListener('click', () => {
             if (floorSelectOverlay.classList.contains('hidden')) showOverlay(floorSelectOverlay);
@@ -462,20 +515,23 @@
                 // AR session started
                 instructions.style.display = "block";
                 rescanBtn.style.display = "block";
-                previewBadge.style.display = 'none';
+                previewBadge.style.display = 'block'; // Show preview badge in AR view
 
-                // If floor not yet mapped and not already mapping, show the instruct overlay
+                // Automatically start floor mapping if not already mapped or in progress
                 if (!floorMapped && !mappingInProgress) {
-                    showOverlay(floorSelectOverlay);
-                } else {
-                    hideOverlay(floorSelectOverlay);
+                    if (lastHitPos) {
+                        startFloorMapping(lastHitPos.x, lastHitPos.z);
+                    } else {
+                        statusText.innerText = "Scanning floor... move phone side-to-side.";
+                        statusText.style.background = "rgba(0, 0, 0, 0.75)";
+                        showOverlay(floorSelectOverlay);
+                    }
                 }
-                // mapping overlay visibility is controlled by start/finish mapping functions
             } else {
                 // AR session ended
                 instructions.style.display = "none";
                 rescanBtn.style.display = "none";
-                previewBadge.style.display = 'block';
+                previewBadge.style.display = 'none'; // Hide preview badge outside AR view
                 hideOverlay(floorSelectOverlay);
                 hideOverlay(floorMappingOverlay);
             }
@@ -483,6 +539,23 @@
 
         // show preview badge initially for visibility (desktop testing)
         previewBadge.style.display = 'block';
+
+        function updateFurnitureList() {
+            const category = document.getElementById('category-select').value;
+            // Logic to update furniture list based on category
+        }
+
+        function deleteFurniture() {
+            // Logic to delete selected furniture
+        }
+
+        function addToWishlist() {
+            // Logic to add furniture to wishlist
+        }
+
+        function addToCart() {
+            // Logic to add furniture to cart
+        }
 
     </script>
 </body>
