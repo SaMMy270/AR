@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Floor-Locked Stager</title>
+    <!-- moved inline styles to external stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+
+    <!-- AR View -->
+    <model-viewer id="room-stager" src="models/sofa-v1.glb" ar ar-modes="webxr" ar-placement="floor" ar-scale="fixed"
+        ar-hit-test initial-placement="floor" interpolation-decay="200" camera-controls shadow-intensity="2"
+        shadow-softness="0" environment-image="neutral">
+
+        <button slot="ar-button" id="ar-button">✨ VIEW IN YOUR ROOM</button>
+
+    </model-viewer>
+
+    <!-- UI elements for AR session -->
+    <div id="ar-ui" class="hidden">
+        <!-- Dropdown for furniture categories -->
+        <div id="category-dropdown">
+            <label for="category-select">Category:</label>
+            <select id="category-select" onchange="updateFurnitureList()">
+                <option value="sofa">Sofa</option>
+                <option value="table">Table</option>
+                <option value="bed">Bed</option>
+                <option value="chair">Chair</option>
+            </select>
+        </div>
+
+        <!-- Delete button -->
+        <button id="delete-button" onclick="deleteFurniture()">Delete</button>
+
+        <!-- Furniture list based on category -->
+        <div id="furniture-list">
+            <p>All the furniture depending on the category:</p>
+            <div class="slider">
+                <div class="slide" style="background-image: url('./images/sofa.jpg')"
+                    onclick="changeModel('models/sofa-v1.glb')"></div>
+                <div class="slide" style="background-image: url('./images/table1.webp')"
+                    onclick="changeModel('models/study_table-v2.glb')"></div>
+                <div class="slide" style="background-image: url('./images/bed1.jpg')"
+                    onclick="changeModel('models/single_bed-v1.glb')"></div>
+                <div class="slide" style="background-image: url('./images/gamingchair.webp')"
+                    onclick="changeModel('models/gaming_chair-v1.glb')"></div>
+            </div>
+        </div>
+
+        <!-- Detailed furniture view -->
+        <div id="furniture-details" class="hidden">
+            <h2>AR View</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Furniture Name</th>
+                        <th>Copies</th>
+                        <th>Cost of 1 Furniture x Copies</th>
+                    </tr>
+                </thead>
+                <tbody id="furniture-details-body">
+                    <!-- Dynamic rows will be added here -->
+                </tbody>
+            </table>
+            <p id="total-cost">TOTAL COST: $0</p>
+            <button onclick="addToWishlist()">Add to Wishlist</button>
+            <button onclick="addToCart()">Add to Cart</button>
+        </div>
+    </div>
+
+    <script>
+        const mv = document.querySelector("#room-stager");
+        const arUI = document.getElementById("ar-ui");
+        const instructions = document.querySelector("#instructions");
+        const statusText = document.querySelector("#instruction-text");
+        const rescanBtn = document.querySelector("#rescan-button");
+
+        // Samples buffer (lightweight)
+        let hitSamples = [];
+        const MAX_SAMPLES = 300;
+        const MIN_PLANE_SAMPLES = 8;
+        const INLIER_THRESHOLD = 0.08; // 8 cm tolerance for inliers
+        let lastPlane = null; // {a,b,c} for y = a*x + b*z + c
+        let emaPos = null; // exponential moving average of raw hit positions
+        const EMA_ALPHA = 0.25; // smoothing factor
+        let inAR = false;
+
+        // add tracking for last hit (used to seed mapping)
+        let lastHitPos = null;
+
+        // Mapping state
+        let floorMapped = false;
+        let floorHull = null; // [{x,z},...]
+        let mappingInProgress = false;
+        let mappingSeed = null;
+        let mappingSamples = [];
+        const MAPPING_DURATION = 1800; // ms
+        const MAPPING_RADIUS = 1.5; // meters around seed to accept samples
+        const MAPPING_MIN_SAMPLES = 20;
+
+        function changeModel(path) {
+            mv.src = path;
+        }
+
+        function pushSample(x, y, z) {
+            hitSamples.push({ x, y, z });
+            if (hitSamples.length > MAX_SAMPLES) hitSamples.shift();
+        }
+
+        // Solve 3x3 linear system by Gaussian elimination (small, fast)
+        function solve3(A, b) {
+            const M = [
+                [A[0][0], A[0][1], A[0][2], b[0]],
+                [A[1][0], A[1][1], A[1][2], b[1]],
+                [A[2][0], A[2][1], A[2][2], b[2]]
+            ];
+            for (let i = 0; i < 3; i++) {
+                // pivot
+                let maxRow = i;
+                for (let r = i + 1; r < 3; r++) if (Math.abs(M[r][i]) > Math.abs(M[maxRow][i])) maxRow = r;
+                if (Math.abs(M[maxRow][i]) < 1e-12) return null; // singular
+                if (maxRow !== i) { const tmp = M[i]; M[i] = M[maxRow]; M[maxRow] = tmp; }
+                // normalize
+                const pivot = M[i][i];
+                for (let c = i; c < 4; c++) M[i][c] /= pivot;
+                // eliminate
+                for (let r = 0; r < 3; r++) {
+                    if (r === i) continue;
+                    const factor = M[r][i];
+                    for (let c = i; c < 4; c++) M[r][c] -= factor * M[i][c];
+                }
+            }
+            return [M[0][3], M[1][3], M[2][3]];
+        }
+
+        // Fit plane y = a*x + b*z + c with least squares
+        function fitPlane(samples) {
+            if (!samples || samples.length < 3) return null;
+            let Sxx = 0, Sxz = 0, Sx = 0, Szz = 0, Sz = 0, Sxy = 0, Szy = 0, Sy = 0;
+            const N = samples.length;
+            for (const p of samples) {
+                const x = p.x, z = p.z, y = p.y;
+                Sxx += x * x;
+                Sxz += x * z;
+                Sx += x;
+                Szz += z * z;
+                Sz += z;
+                Sxy += x * y;
+                Szy += z * y;
+                Sy += y;
+            }
+            const A = [
+                [Sxx, Sxz, Sx],
+                [Sxz, Szz, Sz],
+                [Sx, Sz, N]
+            ];
+            const B = [Sxy, Szy, Sy];
+            const sol = solve3(A, B);
+            if (!sol) return null;
+            const [a, b, c] = sol;
+            return { a, b, c };
+        }
+
+        function projectYOnPlane(x, z, plane) {
+            return plane.a * x + plane.b * z + plane.c;
+        }
+
+        // Robust one-pass inlier selection + refit
+        function robustFit(samples) {
+            if (samples.length < MIN_PLANE_SAMPLES) return null;
+            let plane = fitPlane(samples);
+            if (!plane) return null;
+            // compute inliers
+            const inliers = samples.filter(s => Math.abs(projectYOnPlane(s.x, s.z, plane) - s.y) <= INLIER_THRESHOLD);
+            if (inliers.length < Math.max(6, Math.floor(0.5 * samples.length))) {
+                // Not enough inliers yet
+                return null;
+            }
+            // refit with inliers
+            const refined = fitPlane(inliers) || plane;
+            return { plane: refined, inliers };
+        }
+
+        // Utils: convex hull (monotone chain) and point-in-polygon (ray-cast)
+        function convexHull2D(points) {
+            if (!points || points.length <= 2) return points.slice();
+            const pts = points.slice().sort((a, b) => a.x === b.x ? a.z - b.z : a.x - b.x);
+            const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+            const lower = [];
+            for (const p of pts) {
+                while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+                lower.push(p);
+            }
+            const upper = [];
+            for (let i = pts.length - 1; i >= 0; i--) {
+                while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pts[i]) <= 0) upper.pop();
+                upper.push(pts[i]);
+            }
+            lower.pop(); upper.pop();
+            return lower.concat(upper);
+        }
+
+        function pointInPolygon(x, z, poly) {
+            if (!poly || poly.length === 0) return false;
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, zi = poly[i].z;
+                const xj = poly[j].x, zj = poly[j].z;
+                const intersect = ((zi > z) !== (zj > z)) &&
+                    (x < (xj - xi) * (z - zi) / (zj - zi + 1e-12) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function acceptMappingSample(x, y, z) {
+            if (!mappingInProgress || !mappingSeed) return;
+            const dx = x - mappingSeed.x;
+            const dz = z - mappingSeed.z;
+            if ((dx * dx + dz * dz) <= (MAPPING_RADIUS * MAPPING_RADIUS)) {
+                mappingSamples.push({ x, y, z });
+                if (mappingSamples.length > 500) mappingSamples.shift();
+            }
+        }
+
+        // UI overlay helpers (small, mobile-friendly)
+        const floorSelectOverlay = document.getElementById('floor-select-overlay');
+        const floorMappingOverlay = document.getElementById('floor-mapping-overlay');
+        const mappingStatus = document.getElementById('mapping-status');
+        const mappingProgressBar = document.querySelector('#mapping-progress .progress-bar');
+
+        // replaced to also update aria-hidden so overlays don't block input and are accessible
+        function showOverlay(el) {
+            el.classList.remove('hidden');
+            el.setAttribute('aria-hidden', 'false');
+        }
+        function hideOverlay(el) {
+            el.classList.add('hidden');
+            el.setAttribute('aria-hidden', 'true');
+        }
+
+        // mapping lifecycle
+        function startFloorMapping(seedX, seedZ) {
+            if (mappingInProgress) return;
+            mappingInProgress = true;
+            mappingSeed = { x: seedX, z: seedZ };
+            mappingSamples = [];
+            showOverlay(floorMappingOverlay);
+            mappingStatus.innerText = "Mapping floor…";
+            mappingProgressBar.style.width = "0%";
+
+            const start = performance.now();
+            const tick = () => {
+                const now = performance.now();
+                const elapsed = now - start;
+                const pct = Math.min(1, elapsed / MAPPING_DURATION);
+                mappingProgressBar.style.width = (pct * 100 | 0) + "%";
+                if (elapsed >= MAPPING_DURATION || mappingSamples.length >= MAPPING_MIN_SAMPLES) {
+                    finishFloorMapping();
+                } else if (mappingInProgress) {
+                    requestAnimationFrame(tick);
+                }
+            };
+            requestAnimationFrame(tick);
+        }
+
+        function finishFloorMapping() {
+            mappingInProgress = false;
+            hideOverlay(floorMappingOverlay);
+            const pts = mappingSamples.map(s => ({ x: s.x, z: s.z }));
+            if (pts.length < Math.max(8, MAPPING_MIN_SAMPLES)) {
+                showTransientNote("Not enough data to map floor. Try again.");
+                floorMapped = false;
+                showOverlay(floorSelectOverlay);
+                return;
+            }
+            const hull = convexHull2D(pts);
+            if (hull.length < 3) {
+                showTransientNote("Failed to map floor boundary. Try again.");
+                floorMapped = false;
+                showOverlay(floorSelectOverlay);
+                return;
+            }
+            floorHull = hull;
+            floorMapped = true;
+            showTransientNote("Floor mapped. You can now place objects inside the boundary.");
+            hideOverlay(floorSelectOverlay);
+            statusText.innerText = "Floor mapped. Tap inside area to place.";
+            statusText.style.background = "rgba(0,128,0,0.8)";
+        }
+
+        // Handle various hit-test detail shapes and add sample
+        function handleHitTestEvent(detail) {
+            if (!detail) return;
+            let x, y, z;
+            if (detail.position && typeof detail.position.x === 'number') {
+                x = detail.position.x; y = detail.position.y; z = detail.position.z;
+            } else if (detail.hitMatrix && detail.hitMatrix.length >= 3) {
+                const m = detail.hitMatrix;
+                x = m[12] ?? m[3] ?? 0;
+                y = m[13] ?? m[7] ?? 0;
+                z = m[14] ?? m[11] ?? 0;
+            } else if (detail.transform && detail.transform.position) {
+                x = detail.transform.position.x; y = detail.transform.position.y; z = detail.transform.position.z;
+            } else {
+                return;
+            }
+            lastHitPos = { x, y, z }; // set last hit position
+            acceptMappingSample(x, y, z); // accept sample for mapping
+            pushSample(x, y, z);
+            // update EMA for smoother placement anchor
+            if (!emaPos) emaPos = { x, y, z };
+            else {
+                emaPos.x = emaPos.x * (1 - EMA_ALPHA) + x * EMA_ALPHA;
+                emaPos.y = emaPos.y * (1 - EMA_ALPHA) + y * EMA_ALPHA;
+                emaPos.z = emaPos.z * (1 - EMA_ALPHA) + z * EMA_ALPHA;
+            }
+
+            // attempt robust plane fit when sufficient samples
+            const fit = robustFit(hitSamples);
+            if (fit && fit.plane) {
+                lastPlane = fit.plane;
+                statusText.innerText = "Floor locked. Tap to place.";
+                statusText.style.background = "rgba(0, 128, 0, 0.8)";
+                setTimeout(() => instructions.style.display = "none", 1200);
+            } else {
+                lastPlane = null;
+                statusText.innerText = "Scanning floor... move phone side-to-side.";
+                statusText.style.background = "rgba(0, 0, 0, 0.75)";
+                instructions.style.display = "block";
+            }
+        }
+
+        // Tap to place: project EMA position onto the fitted plane for accurate snap
+        mv.addEventListener('click', (ev) => {
+            if (!inAR) return;
+            if (!floorMapped && !mappingInProgress) {
+                if (!lastHitPos) {
+                    showTransientNote("No valid floor hit yet. Move phone to scan more area.");
+                    return;
+                }
+                hideOverlay(floorSelectOverlay);
+                startFloorMapping(lastHitPos.x, lastHitPos.z);
+                return;
+            }
+            if (mappingInProgress) return; // ignore taps while mapping
+            if (floorMapped) {
+                if (!lastPlane || !emaPos) {
+                    showTransientNote("No valid floor plane yet. Move phone to scan more area.");
+                    return;
+                }
+                const targetX = emaPos.x, targetZ = emaPos.z;
+                if (!pointInPolygon(targetX, targetZ, floorHull)) {
+                    showTransientNote("Placement outside mapped floor boundary is not allowed.");
+                    return;
+                }
+                const targetY = projectYOnPlane(targetX, targetZ, lastPlane);
+                const root = getModelRoot();
+                if (root) {
+                    if ('position' in root) {
+                        root.position.x = targetX;
+                        root.position.y = targetY;
+                        root.position.z = targetZ;
+                        showTransientNote("Placed on detected floor.");
+                    } else if ('translation' in root) {
+                        root.translation.x = targetX;
+                        root.translation.y = targetY;
+                        root.translation.z = targetZ;
+                        showTransientNote("Placed on detected floor.");
+                    } else showTransientNote("Placement not supported in this runtime.");
+                } else showTransientNote("Placement not available in this browser/AR runtime.");
+            }
+        });
+
+        // Hook hit-test events
+        mv.addEventListener('ar-hit-test', (e) => handleHitTestEvent(e.detail));
+        mv.addEventListener('ar-hit-test-achieved', (e) => {
+            if (e.detail) handleHitTestEvent(e.detail);
+            // the status text handling is in handleHitTestEvent
+        });
+
+        // AR session state
+        mv.addEventListener('ar-status', (event) => {
+            const started = event.detail && event.detail.status === 'session-started';
+            inAR = !!started;
+
+            if (started) {
+                // AR session started
+                instructions.style.display = "block";
+                rescanBtn.style.display = "block";
+                previewBadge.style.display = 'block'; // Show preview badge in AR view
+                arUI.classList.remove("hidden"); // Show AR UI elements
+
+                // Automatically start floor mapping if not already mapped or in progress
+                if (!floorMapped && !mappingInProgress) {
+                    if (lastHitPos) {
+                        startFloorMapping(lastHitPos.x, lastHitPos.z);
+                    } else {
+                        statusText.innerText = "Scanning floor... move phone side-to-side.";
+                        statusText.style.background = "rgba(0, 0, 0, 0.75)";
+                        showOverlay(floorSelectOverlay);
+                    }
+                }
+            } else {
+                // AR session ended
+                instructions.style.display = "none";
+                rescanBtn.style.display = "none";
+                previewBadge.style.display = 'none'; // Hide preview badge outside AR view
+                hideOverlay(floorSelectOverlay);
+                hideOverlay(floorMappingOverlay);
+                arUI.classList.add("hidden"); // Hide AR UI elements
+            }
+        });
+
+        // Get model root helper (best-effort; unchanged)
+        function getModelRoot() {
+            try {
+                if (mv.model && mv.model.scene) return mv.model.scene;
+                if (mv.getModel && mv.getModel()) {
+                    const m = mv.getModel();
+                    if (m.scene) return m.scene;
+                    if (m.scenes && m.scenes[0]) return m.scenes[0];
+                }
+                if (mv._scene && mv._scene.root) return mv._scene.root;
+            } catch (e) { }
+            return null;
+        }
+
+        // Transient small user notes
+        let noteTimeout = null;
+        function showTransientNote(msg) {
+            // reuse instruction area to keep UI minimal
+            statusText.innerText = msg;
+            clearTimeout(noteTimeout);
+            noteTimeout = setTimeout(() => {
+                statusText.innerText = lastPlane ? "Floor locked. Tap to place." : "Scanning floor... move phone side-to-side.";
+            }, 1800);
+        }
+
+        // Rescan: clear samples and plane state
+        function rescan() {
+            const currentSrc = mv.src;
+            mv.src = ""; // Clear momentarily to force internal reset
+            hitSamples = [];
+            lastPlane = null;
+            emaPos = null;
+            mappingSamples = []; lastPlane = null; emaPos = null; mappingInProgress = false; floorMapped = false; floorHull = null;
+            setTimeout(() => {
+                mv.src = currentSrc;
+                instructions.style.display = "block";
+                statusText.innerText = "Rescanning... find a flat surface.";
+                statusText.style.background = "rgba(0, 0, 0, 0.75)";
+                showTransientNote("Rescanning floor. Move phone slowly to map the area.");
+            }, 150);
+        }
+
+        window.rescan = rescan;
+
+        // initial status
+        statusText.innerText = "Scanning floor... move phone side-to-side.";
+        statusText.style.background = "rgba(0, 0, 0, 0.75)";
+
+        // Preview badge behavior (shows overlay for AR testing)
+        const previewBadge = document.getElementById('ui-preview-badge');
+        previewBadge.addEventListener('click', () => {
+            if (floorSelectOverlay.classList.contains('hidden')) showOverlay(floorSelectOverlay);
+            else hideOverlay(floorSelectOverlay);
+        });
+
+        // Consolidated AR session handler (use this single one)
+        mv.addEventListener('ar-status', (event) => {
+            const started = event.detail && event.detail.status === 'session-started';
+            inAR = !!started;
+
+            if (started) {
+                // AR session started
+                instructions.style.display = "block";
+                rescanBtn.style.display = "block";
+                previewBadge.style.display = 'block'; // Show preview badge in AR view
+                arUI.classList.remove("hidden"); // Show AR UI elements
+
+                // Automatically start floor mapping if not already mapped or in progress
+                if (!floorMapped && !mappingInProgress) {
+                    if (lastHitPos) {
+                        startFloorMapping(lastHitPos.x, lastHitPos.z);
+                    } else {
+                        statusText.innerText = "Scanning floor... move phone side-to-side.";
+                        statusText.style.background = "rgba(0, 0, 0, 0.75)";
+                        showOverlay(floorSelectOverlay);
+                    }
+                }
+            } else {
+                // AR session ended
+                instructions.style.display = "none";
+                rescanBtn.style.display = "none";
+                previewBadge.style.display = 'none'; // Hide preview badge outside AR view
+                hideOverlay(floorSelectOverlay);
+                hideOverlay(floorMappingOverlay);
+                arUI.classList.add("hidden"); // Hide AR UI elements
+            }
+        });
+
+        // show preview badge initially for visibility (desktop testing)
+        previewBadge.style.display = 'block';
+
+        function updateFurnitureList() {
+            const category = document.getElementById('category-select').value;
+            // Logic to update furniture list based on category
+        }
+
+        function deleteFurniture() {
+            // Logic to delete selected furniture
+        }
+
+        function addToWishlist() {
+            // Logic to add furniture to wishlist
+        }
+
+        function addToCart() {
+            // Logic to add furniture to cart
+        }
+
+    </script>
+</body>
+
+</html>
