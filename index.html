@@ -348,23 +348,17 @@
                 const session = await navigator.xr.requestSession('immersive-ar', {
                     requiredFeatures: ['hit-test'],
                     optionalFeatures: ['dom-overlay'],
-                    domOverlay: { root: document.querySelector('.ar-container') }
+                    domOverlay: { root: document.body }
                 });
 
                 renderer.xr.setSession(session);
                 session.addEventListener('end', onSessionEnd);
 
                 inAR = true;
-                const container = document.querySelector('.ar-container');
-                container.setAttribute('data-in-ar', 'true');
-
                 instructions.classList.add('show');
                 rescanBtn.style.display = 'block';
                 arControls.style.display = 'flex';
                 arButton.style.display = 'none';
-
-                // Ensure drawer is on top in AR
-                drawer.style.zIndex = '1000';
 
                 // Load current furniture model for AR
                 if (selectedFurniture) {
@@ -384,13 +378,10 @@
 
         function onSessionEnd() {
             inAR = false;
-            document.querySelector('.ar-container').removeAttribute('data-in-ar');
-
             instructions.classList.remove('show');
             rescanBtn.style.display = 'none';
             arControls.style.display = 'none';
             arButton.style.display = 'block';
-            drawer.style.zIndex = ''; // Reset z-index
 
             hitTestSourceRequested = false;
             hitTestSource = null;
@@ -606,10 +597,6 @@
                     scene.add(model);
                     model.position.set(0, 0, -2);
                     model.visible = true;
-                } else {
-                    // In AR mode, update currentModel so next tap places this piece
-                    currentModel = model;
-                    showToast(`Selected: ${furniture.name}. Tap to place.`);
                 }
             });
 

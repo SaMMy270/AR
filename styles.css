@@ -178,6 +178,7 @@ canvas {
         opacity: 0;
         transform: translateX(-50%) translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
@@ -266,23 +267,11 @@ canvas {
 }
 
 .drawer.collapsed {
-    transform: translateY(calc(100% - 110px));
+    transform: translateY(calc(100% - 100px));
 }
 
 .drawer.expanded {
     transform: translateY(0);
-}
-
-/* AR Mode specifics for drawer */
-.ar-container[data-in-ar="true"] .drawer {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
-}
-
-.ar-container[data-in-ar="true"] .drawer.collapsed {
-    transform: translateY(calc(100% - 120px)); /* Slightly more visible in AR */
 }
 
 /* Drawer Handle */
@@ -457,6 +446,7 @@ canvas {
         opacity: 0;
         transform: translateX(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);
@@ -631,6 +621,7 @@ canvas {
         opacity: 0;
         transform: translateX(-50%) translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
@@ -691,6 +682,7 @@ canvas {
         opacity: 0;
         transform: translateX(-50%) translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
@@ -788,7 +780,8 @@ canvas {
 }
 
 /* High DPI screens */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+@media (-webkit-min-device-pixel-ratio: 2),
+(min-resolution: 192dpi) {
     .spinner {
         border-width: 2px;
     }
@@ -853,6 +846,7 @@ canvas {
 
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
