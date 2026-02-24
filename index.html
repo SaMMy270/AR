@@ -1,730 +1,1231 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Furniture Viewer - Three.js WebXR</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        @import url('styles.css');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AR Furniture View</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@400;500&display=swap');
 
-        /* Three.js canvas specific styles */
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-    </style>
+  :root {
+    --glass: rgba(10,10,12,0.75);
+    --glass-border: rgba(255,255,255,0.08);
+    --accent: #c8a96e;
+    --accent-glow: rgba(200,169,110,0.4);
+    --danger: #e05c5c;
+    --success: #5ce0a0;
+    --text: #f0ece4;
+    --muted: rgba(240,236,228,0.5);
+    --blur: blur(18px) saturate(1.4);
+  }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #000; color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+
+  /* ── LANDING SCREEN ── */
+  #landing {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 60% 30%, #1a1208 0%, #0a0a0c 70%);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  #landing.hidden { opacity: 0; transform: scale(1.05); pointer-events: none; }
+
+  .landing-bg {
+    position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  }
+  .landing-bg::before {
+    content: ''; position: absolute;
+    width: 600px; height: 600px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(200,169,110,0.12) 0%, transparent 70%);
+    top: -100px; right: -150px; animation: drift 8s ease-in-out infinite alternate;
+  }
+  .landing-bg::after {
+    content: ''; position: absolute;
+    width: 400px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(200,169,110,0.06) 0%, transparent 70%);
+    bottom: -80px; left: -100px; animation: drift 11s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px,20px) scale(1.1); } }
+
+  .brand-tag {
+    font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--accent); opacity: 0.8; margin-bottom: 28px;
+  }
+  .landing h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.4rem, 8vw, 4rem);
+    font-weight: 400; text-align: center; line-height: 1.1;
+    margin-bottom: 18px; letter-spacing: -0.02em;
+  }
+  .landing h1 em { color: var(--accent); font-style: italic; }
+  .landing-sub {
+    font-size: 15px; color: var(--muted); text-align: center;
+    max-width: 300px; line-height: 1.7; margin-bottom: 48px;
+  }
+
+  /* Category tabs */
+  .cat-tab {
+    flex: 0 0 auto; padding: 8px 16px; border-radius: 24px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); color: var(--muted);
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; display: flex; align-items: center; gap: 5px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+    white-space: nowrap;
+  }
+  .cat-tab:hover { border-color: var(--accent); color: var(--text); }
+  .cat-tab.active {
+    background: rgba(200,169,110,0.12); border-color: var(--accent);
+    color: var(--accent); transform: none;
+    box-shadow: 0 2px 16px var(--accent-glow);
+  }
+  .cat-tab:active { transform: scale(0.95); }
+
+  /* Product cards */
+  .product-row {
+    display: flex; gap: 14px; margin-bottom: 48px;
+    padding: 0 20px; overflow-x: auto;
+    scrollbar-width: none; max-width: 100vw;
+  }
+  .product-row::-webkit-scrollbar { display: none; }
+
+  .product-card {
+    flex: 0 0 auto; width: 140px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); border-radius: 16px;
+    padding: 14px; cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .product-card:hover, .product-card.active {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 32px var(--accent-glow);
+  }
+  .product-card.active { background: rgba(200,169,110,0.08); }
+
+  .card-icon {
+    font-size: 36px; text-align: center;
+    margin-bottom: 10px; display: block;
+  }
+  .card-name {
+    font-size: 12px; font-weight: 500; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card-price { font-size: 13px; color: var(--accent); font-weight: 600; }
+  .card-dim { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* AR button */
+  .ar-btn {
+    position: relative; display: flex; align-items: center; gap: 12px;
+    padding: 18px 38px; border-radius: 60px;
+    background: linear-gradient(135deg, #c8a96e, #a07840);
+    border: none; color: #0a0804; font-family: 'DM Sans', sans-serif;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 0 40px var(--accent-glow), 0 4px 24px rgba(0,0,0,0.5);
+    transition: transform 0.2s, box-shadow 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .ar-btn:hover { transform: scale(1.04); box-shadow: 0 0 60px var(--accent-glow), 0 8px 32px rgba(0,0,0,0.5); }
+  .ar-btn:active { transform: scale(0.98); }
+  .ar-btn .pulse-ring {
+    position: absolute; inset: -6px; border-radius: 60px;
+    border: 2px solid var(--accent); opacity: 0;
+    animation: pulse-ring 2.5s ease-out infinite;
+  }
+  .ar-btn .pulse-ring:nth-child(2) { animation-delay: 1.25s; }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.95); opacity: 0.6; }
+    100% { transform: scale(1.15); opacity: 0; }
+  }
+
+  .webxr-note {
+    margin-top: 20px; font-size: 11px; color: var(--muted);
+    text-align: center; max-width: 280px; line-height: 1.6;
+  }
+
+  /* ── AR SCREEN ── */
+  #ar-screen {
+    position: fixed; inset: 0; z-index: 50;
+    display: none; flex-direction: column;
+  }
+  #ar-screen.active { display: flex; }
+
+  #three-canvas {
+    position: absolute; inset: 0;
+    width: 100% !important; height: 100% !important;
+    touch-action: none;
+  }
+
+  /* Top bar */
+  .ar-topbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 52px 20px 16px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%);
+  }
+  .ar-topbar-title { font-size: 13px; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; }
+
+  .btn-icon {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); display: flex; align-items: center;
+    justify-content: center; cursor: pointer; font-size: 18px;
+    transition: background 0.2s, transform 0.15s;
+    color: var(--text); -webkit-tap-highlight-color: transparent;
+  }
+  .btn-icon:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
+
+  /* Status indicator */
+  .ar-status {
+    position: absolute; top: 50%; left: 50%; z-index: 10;
+    transform: translate(-50%, -50%);
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); border-radius: 20px;
+    padding: 16px 26px; text-align: center;
+    transition: opacity 0.5s ease;
+  }
+  .ar-status.hidden { opacity: 0; pointer-events: none; }
+  .ar-status-text { font-size: 14px; font-weight: 500; }
+  .ar-status-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .scan-ring {
+    width: 60px; height: 60px; margin: 0 auto 12px;
+    border: 2px solid var(--accent); border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1.2s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Crosshair reticle */
+  .reticle {
+    position: absolute; top: 50%; left: 50%; z-index: 9;
+    transform: translate(-50%, -50%);
+    width: 50px; height: 50px; pointer-events: none;
+    opacity: 0; transition: opacity 0.4s;
+  }
+  .reticle.visible { opacity: 1; }
+  .reticle svg { width: 100%; height: 100%; }
+
+  /* Bottom product panel */
+  .ar-panel {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+    background: var(--glass); border-top: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); border-radius: 28px 28px 0 0;
+    padding: 20px 24px 36px;
+    transform: translateY(100%);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .ar-panel.visible { transform: translateY(0); }
+
+  .panel-handle {
+    width: 36px; height: 3px; background: rgba(255,255,255,0.2);
+    border-radius: 2px; margin: 0 auto 20px;
+  }
+  .panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .panel-name { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 400; line-height: 1.2; }
+  .panel-price { font-size: 20px; font-weight: 600; color: var(--accent); }
+  .panel-dim { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .panel-actions { display: flex; gap: 12px; align-items: center; margin-top: 20px; }
+
+  .action-btn {
+    flex: 0 0 auto; height: 48px; border-radius: 24px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.06);
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 18px;
+    transition: background 0.2s, transform 0.15s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .action-btn:active { transform: scale(0.95); }
+  .action-btn.primary {
+    flex: 1; background: var(--accent);
+    color: #0a0804; border-color: transparent;
+    font-weight: 600; font-size: 15px;
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .action-btn.primary:hover { background: #d4b87a; }
+  .action-btn.danger { border-color: rgba(224,92,92,0.3); }
+  .action-btn.danger:hover { background: rgba(224,92,92,0.15); color: var(--danger); border-color: var(--danger); }
+
+  /* Gesture hints */
+  .gesture-hints {
+    position: absolute; right: 16px; top: 50%;
+    transform: translateY(-50%); z-index: 10;
+    display: flex; flex-direction: column; gap: 10px;
+    opacity: 0; transition: opacity 0.5s;
+  }
+  .gesture-hints.visible { opacity: 1; }
+  .gesture-hint {
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); border-radius: 12px;
+    padding: 8px 12px; display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--muted); white-space: nowrap;
+  }
+  .gesture-hint span:first-child { font-size: 16px; }
+
+  /* Product switcher */
+  .product-switcher {
+    position: absolute; top: 50%; left: 16px;
+    transform: translateY(-50%); z-index: 10;
+    display: flex; flex-direction: column; gap: 8px;
+    opacity: 0; transition: opacity 0.5s;
+  }
+  .product-switcher.visible { opacity: 1; }
+  .switcher-item {
+    width: 44px; height: 44px; border-radius: 14px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); display: flex; align-items: center;
+    justify-content: center; font-size: 22px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .switcher-item:active { transform: scale(0.9); }
+  .switcher-item.active { border-color: var(--accent); background: rgba(200,169,110,0.12); }
+
+  /* Floor tap indicator */
+  .tap-indicator {
+    position: absolute; bottom: 160px; left: 50%;
+    transform: translateX(-50%); z-index: 10;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); border-radius: 24px;
+    padding: 10px 20px; font-size: 13px; color: var(--muted);
+    opacity: 0; transition: opacity 0.5s;
+    pointer-events: none; white-space: nowrap;
+  }
+  .tap-indicator.visible { opacity: 1; }
+
+  /* Placed object count badge */
+  .placed-badge {
+    position: absolute; top: 110px; right: 20px; z-index: 10;
+    background: var(--accent); color: #0a0804;
+    width: 28px; height: 28px; border-radius: 50%;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: scale(0); transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .placed-badge.visible { opacity: 1; transform: scale(1); }
+
+  /* Toast */
+  .toast {
+    position: fixed; top: 100px; left: 50%; transform: translateX(-50%) translateY(-20px);
+    z-index: 200; background: rgba(10,10,12,0.9); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--blur); border-radius: 24px;
+    padding: 12px 24px; font-size: 13px; font-weight: 500;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.gold { border-color: var(--accent); color: var(--accent); }
+  .toast.green { border-color: var(--success); color: var(--success); }
+
+  /* Fallback simulator */
+  #fallback-camera {
+    position: absolute; inset: 0; overflow: hidden;
+    background: #1a1a1a;
+  }
+  .room-sim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to bottom, #2a2520 0%, #1a1510 40%, #0f0d0a 100%);
+  }
+  /* Fake perspective floor grid */
+  .floor-grid {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 55%;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(200,169,110,0.06) 0px, transparent 1px, transparent 60px),
+      repeating-linear-gradient(90deg, rgba(200,169,110,0.06) 0px, transparent 1px, transparent 60px);
+    background-size: 60px 60px;
+    transform: perspective(400px) rotateX(40deg);
+    transform-origin: bottom center;
+  }
+  /* Fake walls */
+  .wall-left { position: absolute; top: 0; left: 0; width: 35%; height: 65%; background: rgba(200,169,110,0.02); border-right: 1px solid rgba(200,169,110,0.04); }
+  .wall-right { position: absolute; top: 0; right: 0; width: 35%; height: 65%; background: rgba(200,169,110,0.02); border-left: 1px solid rgba(200,169,110,0.04); }
+  .ceiling-light {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 60px; background: linear-gradient(to bottom, rgba(255,255,200,0.3), transparent);
+    box-shadow: 0 0 40px 20px rgba(255,255,200,0.04);
+  }
+
+  /* Responsive */
+  @media (min-width: 600px) {
+    .ar-panel { max-width: 420px; left: 50%; transform: translateX(-50%) translateY(100%); right: auto; }
+    .ar-panel.visible { transform: translateX(-50%) translateY(0); }
+    .landing h1 { font-size: 3.5rem; }
+  }
+</style>
 </head>
-
 <body>
-    <!-- Three.js and GLTFLoader -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
-    <div class="ar-container">
-        <!-- Three.js Canvas Container -->
-        <div id="canvas-container"></div>
+<!-- ══════════════════════════════════════ LANDING ══════════════════════════════════════ -->
+<div id="landing" class="landing">
+  <div class="landing-bg"></div>
 
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loading-overlay">
-            <div class="spinner"></div>
-            <div class="loading-text">Loading model...</div>
-        </div>
+  <p class="brand-tag">✦ Augmented Reality Furniture</p>
+  <h1>See it in your<br><em>space</em>, before you<br>buy it.</h1>
+  <p class="landing-sub">Place true-to-scale furniture in your room using your phone camera. Walk around. Feel the space.</p>
 
-        <!-- Top Controls -->
-        <div class="top-controls">
-            <div class="category-dropdown">
-                <label>Category</label>
-                <select class="category-select" id="category-select">
-                    <option value="all">All</option>
-                    <option value="sofa">Sofa</option>
-                    <option value="table">Table</option>
-                    <option value="bed">Bed</option>
-                    <option value="chair">Chair</option>
-                </select>
-            </div>
-            <button class="delete-btn" id="delete-btn" disabled>Delete</button>
-        </div>
+  <div class="product-row" id="category-row" style="margin-bottom:12px;"></div>
+  <div class="product-row" id="product-row"></div>
 
-        <!-- AR Button -->
-        <button id="ar-button" class="ar-button">View in Your Room</button>
+  <button class="ar-btn" id="ar-launch-btn">
+    <div class="pulse-ring"></div>
+    <div class="pulse-ring"></div>
+    <span>📷</span>
+    <span>View in AR</span>
+  </button>
 
-        <!-- Current Model Badge -->
-        <div class="current-model-badge" id="model-badge"></div>
+  <p class="webxr-note" id="webxr-note"></p>
+</div>
 
-        <!-- Instructions -->
-        <div class="instructions" id="instructions">
-            <div id="instruction-text">Tap screen to place furniture</div>
-        </div>
-
-        <!-- Rescan Button -->
-        <button class="rescan-btn" id="rescan-btn" style="display: none;">Rescan</button>
-
-        <!-- Toast Notification -->
-        <div class="toast" id="toast"></div>
-
-        <!-- AR Controls (shown in AR mode) -->
-        <div id="ar-controls"
-            style="display: none; position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; gap: 12px;">
-            <button class="control-btn" id="rotate-left">↶</button>
-            <button class="control-btn" id="scale-up">+</button>
-            <button class="control-btn" id="scale-down">−</button>
-            <button class="control-btn" id="rotate-right">↷</button>
-        </div>
-
-        <!-- Bottom Drawer -->
-        <div class="drawer collapsed" id="drawer">
-            <!-- Drawer Handle -->
-            <div class="drawer-handle" id="drawer-handle">
-                <div class="handle-bar"></div>
-            </div>
-
-            <!-- Furniture Categories (visible when collapsed) -->
-            <div class="furniture-categories" id="furniture-categories">
-                <div class="categories-title">All the furnitures depending on the category</div>
-                <div class="furniture-grid" id="furniture-grid">
-                    <!-- Furniture cards will be populated here -->
-                </div>
-            </div>
-
-            <!-- Cart Section (visible when expanded) -->
-            <div class="drawer-header">
-                <h3>AR VIEW</h3>
-                <p class="drawer-subtitle">Items in your cart</p>
-            </div>
-
-            <div class="cart-section">
-                <div class="cart-table-header">
-                    <span>Furniture Name</span>
-                    <span>Copies</span>
-                    <span style="text-align: right;">Cost</span>
-                    <span></span>
-                </div>
-
-                <div class="cart-items" id="cart-items">
-                    <div class="cart-empty">
-                        <div class="cart-empty-icon">🛋️</div>
-                        <p>No items yet</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="cart-footer">
-                <div class="total-row">
-                    <span class="total-label">Total Cost</span>
-                    <span class="total-amount" id="total-cost">₹0</span>
-                </div>
-                <div class="action-buttons">
-                    <button class="action-btn btn-wishlist" id="wishlist-btn" disabled>Add to wishlist</button>
-                    <button class="action-btn btn-cart" id="cart-btn" disabled>Add to cart</button>
-                </div>
-            </div>
-        </div>
+<!-- ══════════════════════════════════════ AR SCREEN ══════════════════════════════════════ -->
+<div id="ar-screen">
+  <!-- Camera / fallback bg -->
+  <div id="fallback-camera">
+    <div class="room-sim">
+      <div class="wall-left"></div>
+      <div class="wall-right"></div>
+      <div class="floor-grid"></div>
+      <div class="ceiling-light"></div>
     </div>
+  </div>
 
-    <style>
-        /* Additional styles for Three.js implementation */
-        .ar-button {
-            position: absolute;
-            bottom: 120px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 14px 32px;
-            background: #007AFF;
-            border: none;
-            border-radius: 24px;
-            color: white;
-            font-family: 'Inter', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
-            transition: all 0.3s ease;
-            z-index: 50;
+  <!-- Three.js canvas -->
+  <canvas id="three-canvas"></canvas>
+
+  <!-- Top bar -->
+  <div class="ar-topbar">
+    <button class="btn-icon" id="btn-back" title="Exit AR">✕</button>
+    <span class="ar-topbar-title">AR View</span>
+    <button class="btn-icon" id="btn-flashlight" title="Flash">🔆</button>
+  </div>
+
+  <!-- Placed badge -->
+  <div class="placed-badge" id="placed-badge">0</div>
+
+  <!-- Scanning status -->
+  <div class="ar-status" id="ar-status">
+    <div class="scan-ring"></div>
+    <div class="ar-status-text">Scanning your room…</div>
+    <div class="ar-status-sub">Move your phone slowly to detect surfaces</div>
+  </div>
+
+  <!-- Crosshair reticle -->
+  <div class="reticle" id="reticle">
+    <svg viewBox="0 0 50 50" fill="none">
+      <circle cx="25" cy="25" r="20" stroke="#c8a96e" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/>
+      <line x1="25" y1="5" x2="25" y2="15" stroke="#c8a96e" stroke-width="1.5"/>
+      <line x1="25" y1="35" x2="25" y2="45" stroke="#c8a96e" stroke-width="1.5"/>
+      <line x1="5" y1="25" x2="15" y2="25" stroke="#c8a96e" stroke-width="1.5"/>
+      <line x1="35" y1="25" x2="45" y2="25" stroke="#c8a96e" stroke-width="1.5"/>
+      <circle cx="25" cy="25" r="2" fill="#c8a96e"/>
+    </svg>
+  </div>
+
+  <!-- Tap indicator -->
+  <div class="tap-indicator" id="tap-indicator">👆 Tap floor to place furniture</div>
+
+  <!-- Gesture hints -->
+  <div class="gesture-hints" id="gesture-hints">
+    <div class="gesture-hint"><span>👆</span><span>Tap — Place</span></div>
+    <div class="gesture-hint"><span>✋</span><span>Drag — Move</span></div>
+    <div class="gesture-hint"><span>🔄</span><span>2 Fingers — Rotate</span></div>
+    <div class="gesture-hint"><span>🤏</span><span>Pinch — Scale</span></div>
+  </div>
+
+  <!-- Product switcher -->
+  <div class="product-switcher" id="product-switcher"></div>
+
+  <!-- Bottom panel -->
+  <div class="ar-panel" id="ar-panel">
+    <div class="panel-handle"></div>
+    <div class="panel-header">
+      <div>
+        <div class="panel-name" id="panel-name">Modern Sofa</div>
+        <div class="panel-dim" id="panel-dim">220 × 90 × 85 cm</div>
+      </div>
+      <div style="text-align:right">
+        <div class="panel-price" id="panel-price">₹48,999</div>
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button class="action-btn" id="btn-rotate" title="Rotate 45°">🔄 Rotate</button>
+      <button class="action-btn danger" id="btn-remove" title="Remove last placed">🗑 Remove</button>
+      <button class="action-btn primary" id="btn-cart">Add to Cart</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ─────────────────────────────────────────────
+//  DATA  — full furniture database
+// ─────────────────────────────────────────────
+const PRODUCTS = [
+  // ── SOFAS ──
+  { dbId:1,  id:'sofa',   category:'sofa',   emoji:'🛋️', name:'Modern Sofa',    price:'₹45,000', dim:'220×85×90 cm',  w:2.2,  h:0.85, d:0.9,  color:0x7A6852, model:'models/sofa.glb' },
+  { dbId:2,  id:'sofa',   category:'sofa',   emoji:'🛋️', name:'L-Shape Sofa',   price:'₹62,000', dim:'280×85×160 cm', w:2.8,  h:0.85, d:1.6,  color:0x6B5B45, model:'models/sofa_l.glb' },
+  { dbId:3,  id:'sofa',   category:'sofa',   emoji:'🪑', name:'Loveseat',        price:'₹35,000', dim:'150×80×85 cm',  w:1.5,  h:0.80, d:0.85, color:0x9B8B70, model:'models/loveseat.glb' },
+  // ── TABLES ──
+  { dbId:4,  id:'table',  category:'table',  emoji:'🍽️', name:'Dining Table',   price:'₹38,000', dim:'180×75×90 cm',  w:1.8,  h:0.75, d:0.9,  color:0xA07850, model:'models/dining_table.glb' },
+  { dbId:5,  id:'table',  category:'table',  emoji:'☕', name:'Coffee Table',    price:'₹12,000', dim:'120×40×60 cm',  w:1.2,  h:0.40, d:0.6,  color:0x8B6840, model:'models/coffee_table.glb' },
+  { dbId:6,  id:'table',  category:'table',  emoji:'📚', name:'Study Desk',      price:'₹18,000', dim:'140×75×70 cm',  w:1.4,  h:0.75, d:0.7,  color:0x7A6040, model:'models/study_table.glb' },
+  // ── BEDS ──
+  { dbId:7,  id:'bed',    category:'bed',    emoji:'🛏️', name:'King Bed',        price:'₹55,000', dim:'193×200×110 cm',w:1.93, h:1.1,  d:2.0,  color:0x6B5B45, model:'models/king_bed.glb' },
+  { dbId:8,  id:'bed',    category:'bed',    emoji:'🛏️', name:'Queen Bed',       price:'₹42,000', dim:'152×200×105 cm',w:1.52, h:1.05, d:2.0,  color:0x7A6855, model:'models/queen_bed.glb' },
+  // ── CHAIRS ──
+  { dbId:9,  id:'chair',  category:'chair',  emoji:'🪑', name:'Office Chair',    price:'₹15,000', dim:'65×110×65 cm',  w:0.65, h:1.1,  d:0.65, color:0x2A2A2A, model:'models/office_chair.glb' },
+  { dbId:10, id:'chair',  category:'chair',  emoji:'🎮', name:'Gaming Chair',    price:'₹22,000', dim:'70×125×70 cm',  w:0.70, h:1.25, d:0.70, color:0x1A1A2E, model:'models/gaming_chair.glb' },
+  { dbId:11, id:'chair',  category:'chair',  emoji:'🪑', name:'Accent Chair',    price:'₹18,000', dim:'75×85×80 cm',   w:0.75, h:0.85, d:0.80, color:0x9B8B6B, model:'models/accent_chair.glb' },
+  { dbId:12, id:'chair',  category:'chair',  emoji:'🪑', name:'Recliner',        price:'₹28,000', dim:'90×105×95 cm',  w:0.90, h:1.05, d:0.95, color:0x5A4030, model:'models/recliner.glb' },
+];
+
+const CATEGORIES = [
+  { key:'all',   label:'All',    emoji:'✦' },
+  { key:'sofa',  label:'Sofas',  emoji:'🛋️' },
+  { key:'table', label:'Tables', emoji:'🍽️' },
+  { key:'bed',   label:'Beds',   emoji:'🛏️' },
+  { key:'chair', label:'Chairs', emoji:'🪑' },
+];
+
+let activeCategory = 'all';
+
+let selectedProduct = PRODUCTS[0];
+let placedObjects = [];
+let selectedObj = null;
+let surfaceDetected = false;
+let panelVisible = false;
+
+// ─────────────────────────────────────────────
+//  BUILD LANDING  — category tabs + product cards
+// ─────────────────────────────────────────────
+const catRow = document.getElementById('category-row');
+const productRow = document.getElementById('product-row');
+
+function filteredProducts() {
+  return activeCategory === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.category === activeCategory);
+}
+
+function renderCategoryTabs() {
+  catRow.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-tab' + (cat.key === activeCategory ? ' active' : '');
+    btn.innerHTML = `<span>${cat.emoji}</span> ${cat.label}`;
+    btn.addEventListener('click', () => {
+      activeCategory = cat.key;
+      renderCategoryTabs();
+      renderProductCards();
+    });
+    catRow.appendChild(btn);
+  });
+}
+
+function renderProductCards() {
+  productRow.innerHTML = '';
+  const list = filteredProducts();
+  list.forEach((p, i) => {
+    const card = document.createElement('div');
+    const isActive = p === selectedProduct || (i === 0 && !list.includes(selectedProduct));
+    if (i === 0 && !list.includes(selectedProduct)) selectedProduct = p;
+    card.className = 'product-card' + (p === selectedProduct ? ' active' : '');
+    card.innerHTML = `<span class="card-icon">${p.emoji}</span>
+      <div class="card-name">${p.name}</div>
+      <div class="card-price">${p.price}</div>
+      <div class="card-dim">${p.dim}</div>`;
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.product-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      selectedProduct = p;
+    });
+    productRow.appendChild(card);
+  });
+}
+
+renderCategoryTabs();
+renderProductCards();
+
+// ─────────────────────────────────────────────
+//  THREE.JS SETUP
+// ─────────────────────────────────────────────
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x000000, 0);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
+camera.position.set(0, 1.6, 3);
+camera.lookAt(0, 0, 0);
+
+// Lights
+const ambient = new THREE.AmbientLight(0xfff5e0, 0.6);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xfff5e0, 1.2);
+dirLight.position.set(3, 8, 4);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(1024,1024);
+dirLight.shadow.camera.near = 0.1;
+dirLight.shadow.camera.far = 30;
+dirLight.shadow.camera.left = dirLight.shadow.camera.bottom = -6;
+dirLight.shadow.camera.right = dirLight.shadow.camera.top = 6;
+scene.add(dirLight);
+const pointLight = new THREE.PointLight(0xc8a96e, 0.8, 10);
+pointLight.position.set(-2, 3, 2);
+scene.add(pointLight);
+
+// Floor (invisible, for shadows)
+const floorGeo = new THREE.PlaneGeometry(20, 20);
+const floorMat = new THREE.ShadowMaterial({ opacity: 0.25 });
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI/2;
+floor.receiveShadow = true;
+floor.position.y = 0;
+scene.add(floor);
+
+// Hit plane for raycasting
+const hitPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(20,20),
+  new THREE.MeshBasicMaterial({ visible:false, side:THREE.DoubleSide })
+);
+hitPlane.rotation.x = -Math.PI/2;
+hitPlane.position.y = 0;
+scene.add(hitPlane);
+
+// ─────────────────────────────────────────────
+//  FURNITURE BUILDER
+// ─────────────────────────────────────────────
+function buildFurniture(product) {
+  const g = new THREE.Group();
+  const col = product.color;
+  const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.65, metalness: 0.05 });
+  const matDark = new THREE.MeshStandardMaterial({ color: new THREE.Color(col).multiplyScalar(0.45), roughness: 0.8 });
+  const matLight = new THREE.MeshStandardMaterial({ color: new THREE.Color(col).lerp(new THREE.Color(0xffffff), 0.25), roughness: 0.7 });
+  const matMetal = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.9 });
+
+  const W = product.w, H = product.h, D = product.d;
+  const cat = product.category;
+
+  // ── SOFAS (sofa / loveseat / L-shape) ──
+  if (cat === 'sofa') {
+    const isL = product.dbId === 2;
+    // Main seat
+    addBox(g, mat, W, H*0.32, D*0.55, 0, H*0.16, 0);
+    // Back cushion
+    addBox(g, mat, W, H*0.58, D*0.18, 0, H*0.50, -D*0.175);
+    // Arm left
+    addBox(g, mat, W*0.08, H*0.48, D*0.55, -W/2+W*0.04, H*0.36, 0);
+    // Arm right
+    addBox(g, mat, W*0.08, H*0.48, D*0.55,  W/2-W*0.04, H*0.36, 0);
+    // Seat cushions (3)
+    const nCush = isL ? 4 : (product.dbId===3 ? 2 : 3);
+    const cw = (W*0.84 - (nCush-1)*0.02) / nCush;
+    for (let i=0; i<nCush; i++) {
+      const cx = -W*0.42 + cw/2 + i*(cw+0.02);
+      addBox(g, matLight, cw, H*0.12, D*0.48, cx, H*0.34, 0.02);
+    }
+    // Back cushions
+    for (let i=0; i<nCush; i++) {
+      const cx = -W*0.42 + cw/2 + i*(cw+0.02);
+      addBox(g, matLight, cw, H*0.42, D*0.12, cx, H*0.54, -D*0.155);
+    }
+    // L-shape extra arm section
+    if (isL) {
+      addBox(g, mat, D*0.55, H*0.32, D*0.55, W/2-D*0.275, H*0.16, D*0.275);
+      addBox(g, mat, D*0.55, H*0.58, D*0.18, W/2-D*0.275, H*0.50, D*0.355);
+      addBox(g, mat, D*0.55, H*0.48, D*0.08, W/2-D*0.275, H*0.36, D*0.495);
+    }
+    // Legs
+    const legOffX = W/2-W*0.06, legOffZ = D*0.22;
+    [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([sx,sz])=>{
+      addBox(g, matDark, 0.05, H*0.10, 0.05, sx*legOffX, H*0.05, sz*legOffZ);
+    });
+  }
+
+  // ── TABLES (dining / coffee / study) ──
+  else if (cat === 'table') {
+    const isStudy = product.dbId === 6;
+    // Tabletop
+    addBox(g, mat, W, H*0.06, D, 0, H-H*0.03, 0);
+    if (isStudy) {
+      // Drawer unit on one side
+      addBox(g, matDark, W*0.22, H*0.55, D*0.96, -W/2+W*0.11, H*0.30, 0);
+      // Drawer handles
+      for (let i=0; i<3; i++) addBox(g, matMetal, 0.08, 0.015, 0.015, -W/2+W*0.11, H*0.50-i*H*0.14, D*0.49);
+      // Single leg on other side
+      addBox(g, matDark, W*0.06, H*0.88, D*0.06, W/2-W*0.08, H*0.44, 0);
+    } else {
+      // 4 legs
+      [[1,-1],[1,1],[-1,-1],[-1,1]].forEach(([sx,sz])=>{
+        addBox(g, matDark, W*0.055, H*0.92, D*0.055, sx*(W/2-W*0.07), H*0.46, sz*(D/2-D*0.07));
+      });
+      // Dining table: lower shelf
+      if (product.dbId===4) addBox(g, matDark, W*0.7, H*0.03, D*0.7, 0, H*0.28, 0);
+    }
+  }
+
+  // ── BEDS (king / queen) ──
+  else if (cat === 'bed') {
+    // Platform / base
+    addBox(g, mat, W, H*0.22, D, 0, H*0.11, 0);
+    // Mattress
+    addBox(g, new THREE.MeshStandardMaterial({color:0xEEE8DC,roughness:0.9}), W*0.97, H*0.18, D*0.96, 0, H*0.31, 0);
+    // Headboard
+    addBox(g, mat, W, H*0.72, H*0.08, 0, H*0.58, -D/2+H*0.04);
+    // Headboard detail panel
+    addBox(g, matLight, W*0.88, H*0.50, H*0.025, 0, H*0.60, -D/2+H*0.09);
+    // Footboard
+    addBox(g, mat, W, H*0.30, H*0.06, 0, H*0.26, D/2-H*0.03);
+    // Pillows
+    const nPillows = product.dbId===7 ? 4 : 2;
+    const pw = (W*0.8) / nPillows - 0.03;
+    for (let i=0; i<nPillows; i++) {
+      const px = -W*0.4 + pw/2 + i*(pw+0.03);
+      addBox(g, new THREE.MeshStandardMaterial({color:0xFAF5EC,roughness:1}), pw, H*0.09, D*0.20, px, H*0.42, -D/2+D*0.14);
+    }
+    // Blanket/duvet suggestion
+    addBox(g, new THREE.MeshStandardMaterial({color:new THREE.Color(col).lerp(new THREE.Color(0xffffff),0.5),roughness:1}), W*0.97, H*0.04, D*0.62, 0, H*0.37, D*0.15);
+    // Legs
+    [[1,-1],[1,1],[-1,-1],[-1,1]].forEach(([sx,sz])=>{
+      addBox(g, matDark, 0.06, H*0.10, 0.06, sx*(W/2-0.08), H*0.05, sz*(D/2-0.08));
+    });
+  }
+
+  // ── CHAIRS (office / gaming / accent / recliner) ──
+  else if (cat === 'chair') {
+    const isGaming = product.dbId === 10;
+    const isRecliner = product.dbId === 12;
+    const isOffice = product.dbId === 9;
+
+    if (isOffice || isGaming) {
+      // Seat pad
+      addBox(g, mat, W, H*0.06, D*0.55, 0, H*0.38, 0);
+      // Backrest
+      addBox(g, mat, W, H*0.50, D*0.08, 0, H*0.65, -D*0.22);
+      // Lumbar / headrest
+      addBox(g, matLight, W*0.82, H*0.12, D*0.07, 0, H*0.48, -D*0.215);
+      addBox(g, isGaming ? matDark : matLight, W*0.70, H*0.10, D*0.07, 0, H*0.92, -D*0.215);
+      // Armrests
+      addBox(g, matDark, W*0.07, H*0.04, D*0.36, -W/2+W*0.06, H*0.46, 0);
+      addBox(g, matDark, W*0.07, H*0.04, D*0.36,  W/2-W*0.06, H*0.46, 0);
+      // Gas cylinder
+      addBox(g, matMetal, 0.06, H*0.28, 0.06, 0, H*0.20, 0);
+      // 5-star base spokes
+      for (let a=0; a<5; a++) {
+        const angle = (a/5)*Math.PI*2;
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(W*0.6, 0.04, 0.06), matDark);
+        spoke.rotation.y = angle;
+        spoke.position.y = H*0.05;
+        g.add(spoke);
+        // Caster wheel
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.04, 8), matDark);
+        wheel.position.set(Math.sin(angle)*W*0.28, H*0.03, Math.cos(angle)*W*0.28);
+        g.add(wheel);
+      }
+      if (isGaming) {
+        // Racing stripe accent
+        addBox(g, new THREE.MeshStandardMaterial({color:0xff3030,roughness:0.5}), W*0.12, H*0.50, D*0.015, -W/2+W*0.12, H*0.65, -D*0.215);
+        addBox(g, new THREE.MeshStandardMaterial({color:0xff3030,roughness:0.5}), W*0.12, H*0.50, D*0.015,  W/2-W*0.12, H*0.65, -D*0.215);
+      }
+    } else if (isRecliner) {
+      // Body
+      addBox(g, mat, W, H*0.42, D*0.58, 0, H*0.28, 0);
+      // Backrest (slightly tilted feel via position)
+      addBox(g, mat, W, H*0.58, D*0.14, 0, H*0.60, -D*0.195);
+      // Headrest
+      addBox(g, matLight, W*0.78, H*0.14, D*0.12, 0, H*0.88, -D*0.18);
+      // Armrests
+      addBox(g, mat, W*0.10, H*0.20, D*0.56, -W/2+W*0.05, H*0.42, 0);
+      addBox(g, mat, W*0.10, H*0.20, D*0.56,  W/2-W*0.05, H*0.42, 0);
+      // Footrest
+      addBox(g, mat, W*0.82, H*0.06, D*0.36, 0, H*0.10, D/2-D*0.10);
+      // Legs
+      [[1,-1],[1,1],[-1,-1],[-1,1]].forEach(([sx,sz])=>{
+        addBox(g, matDark, 0.06, H*0.10, 0.06, sx*(W/2-0.07), H*0.05, sz*(D/2-0.07));
+      });
+    } else {
+      // Accent chair
+      addBox(g, mat, W, H*0.09, D, 0, H*0.44, 0);
+      addBox(g, mat, W, H*0.56, D*0.12, 0, H*0.70, -D/2+D*0.06);
+      addBox(g, matLight, W*0.80, H*0.40, D*0.09, 0, H*0.74, -D/2+D*0.10);
+      addBox(g, mat, W*0.08, H*0.44, D, -W/2+W*0.04, H*0.44+H*0.08, 0);
+      addBox(g, mat, W*0.08, H*0.44, D,  W/2-W*0.04, H*0.44+H*0.08, 0);
+      [[1,-1],[1,1],[-1,-1],[-1,1]].forEach(([sx,sz])=>{
+        addBox(g, matDark, 0.045, H*0.44, 0.045, sx*(W/2-0.06), H*0.22, sz*(D/2-0.06));
+      });
+    }
+  }
+
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  return g;
+}
+
+function addBox(parent, mat, w, h, d, x, y, z) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  mesh.position.set(x,y,z);
+  parent.add(mesh);
+}
+
+// ─────────────────────────────────────────────
+//  RAYCASTER
+// ─────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+function getFloorPosition(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(new THREE.Vector2(x,y), camera);
+  const hits = raycaster.intersectObject(hitPlane);
+  return hits.length ? hits[0].point : null;
+}
+
+// ─────────────────────────────────────────────
+//  PLACE OBJECT
+// ─────────────────────────────────────────────
+function placeObject(x, y, clientX, clientY) {
+  const pos = getFloorPosition(clientX, clientY);
+  if (!pos) return;
+  const obj = buildFurniture(selectedProduct);
+  obj.position.copy(pos);
+  obj.userData = { product: selectedProduct, scale: 1, rotY: 0 };
+  scene.add(obj);
+  placedObjects.push(obj);
+  selectedObj = obj;
+
+  updateBadge();
+  showPanel();
+  showToast('✓ Placed! Drag to reposition', 'green');
+}
+
+// ─────────────────────────────────────────────
+//  ORBIT / DRAG CAMERA
+// ─────────────────────────────────────────────
+let camTheta = 0, camPhi = Math.PI/6, camRadius = 3;
+let drag = { active:false, x:0, y:0, type:'camera' };
+let pinch = { active:false, dist:0, angle:0, obj:null };
+
+function updateCamera() {
+  camera.position.x = camRadius * Math.sin(camTheta) * Math.cos(camPhi);
+  camera.position.y = camRadius * Math.sin(camPhi) + 0.5;
+  camera.position.z = camRadius * Math.cos(camTheta) * Math.cos(camPhi);
+  camera.lookAt(0, 0.4, 0);
+}
+updateCamera();
+
+// ─────────────────────────────────────────────
+//  TOUCH / MOUSE EVENTS
+// ─────────────────────────────────────────────
+const arScreen = document.getElementById('ar-screen');
+
+function onTouchStart(e) {
+  if (!surfaceDetected) return;
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    drag.active = true;
+    drag.x = e.touches[0].clientX;
+    drag.y = e.touches[0].clientY;
+    drag.startX = drag.x;
+    drag.startY = drag.y;
+    drag.moved = false;
+    drag.type = 'camera';
+  } else if (e.touches.length === 2) {
+    drag.active = false;
+    pinch.active = true;
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    pinch.dist = Math.hypot(dx,dy);
+    pinch.angle = Math.atan2(dy,dx);
+    pinch.obj = selectedObj;
+  }
+}
+
+function onTouchMove(e) {
+  e.preventDefault();
+  if (e.touches.length === 1 && drag.active) {
+    const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+    const dx = tx - drag.x, dy = ty - drag.y;
+    drag.x = tx; drag.y = ty;
+    if (Math.abs(tx-drag.startX)+Math.abs(ty-drag.startY) > 5) drag.moved = true;
+    // orbit camera
+    camTheta -= dx * 0.008;
+    camPhi = Math.max(0.05, Math.min(Math.PI/2.4, camPhi - dy*0.006));
+    updateCamera();
+  } else if (e.touches.length === 2 && pinch.active) {
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    const dist = Math.hypot(dx,dy);
+    const angle = Math.atan2(dy,dx);
+    // scale
+    if (pinch.obj) {
+      const factor = dist / pinch.dist;
+      const ns = Math.max(0.3, Math.min(3.0, (pinch.obj.userData.scale||1) * factor));
+      pinch.obj.scale.setScalar(ns);
+      pinch.obj.userData.scale = ns;
+      // rotate
+      const dAngle = angle - pinch.angle;
+      pinch.obj.rotation.y += dAngle;
+      pinch.obj.userData.rotY = pinch.obj.rotation.y;
+    }
+    pinch.dist = dist;
+    pinch.angle = angle;
+  }
+}
+
+function onTouchEnd(e) {
+  if (e.touches.length === 0) {
+    if (drag.active && !drag.moved) {
+      // Tap → place
+      placeObject(drag.startX, drag.startY, drag.startX, drag.startY);
+    }
+    drag.active = false;
+    pinch.active = false;
+  } else if (e.touches.length < 2) {
+    pinch.active = false;
+  }
+}
+
+// Mouse fallback
+let mouseDragging = false, mouseX = 0, mouseY = 0, mouseMoved = false;
+canvas.addEventListener('mousedown', e => {
+  mouseDragging = true;
+  mouseX = e.clientX; mouseY = e.clientY; mouseMoved = false;
+});
+window.addEventListener('mousemove', e => {
+  if (!mouseDragging || !surfaceDetected) return;
+  const dx = e.clientX - mouseX, dy = e.clientY - mouseY;
+  mouseX = e.clientX; mouseY = e.clientY;
+  if (Math.abs(dx)+Math.abs(dy)>3) mouseMoved = true;
+  camTheta -= dx * 0.008;
+  camPhi = Math.max(0.05, Math.min(Math.PI/2.4, camPhi - dy*0.006));
+  updateCamera();
+});
+window.addEventListener('mouseup', e => {
+  if (mouseDragging && !mouseMoved && surfaceDetected) {
+    placeObject(e.clientX, e.clientY, e.clientX, e.clientY);
+  }
+  mouseDragging = false;
+});
+canvas.addEventListener('wheel', e => {
+  camRadius = Math.max(1, Math.min(8, camRadius + e.deltaY*0.003));
+  updateCamera();
+}, { passive:true });
+
+canvas.addEventListener('touchstart', onTouchStart, { passive:false });
+canvas.addEventListener('touchmove', onTouchMove, { passive:false });
+canvas.addEventListener('touchend', onTouchEnd, { passive:false });
+
+// ─────────────────────────────────────────────
+//  UI HELPERS
+// ─────────────────────────────────────────────
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type?' '+type:'');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className='toast'; }, 2500);
+}
+
+function showPanel() {
+  const panel = document.getElementById('ar-panel');
+  panel.classList.add('visible');
+  panelVisible = true;
+  if (selectedObj) {
+    const p = selectedObj.userData.product;
+    document.getElementById('panel-name').textContent = p.name;
+    document.getElementById('panel-price').textContent = p.price;
+    document.getElementById('panel-dim').textContent = p.dim;
+  }
+}
+
+function updateBadge() {
+  const b = document.getElementById('placed-badge');
+  b.textContent = placedObjects.length;
+  b.classList.toggle('visible', placedObjects.length > 0);
+}
+
+function updateSwitcher() {
+  const sw = document.getElementById('product-switcher');
+  sw.innerHTML='';
+  filteredProducts().forEach(p => {
+    const el = document.createElement('div');
+    el.className = 'switcher-item' + (p===selectedProduct?' active':'');
+    el.textContent = p.emoji;
+    el.title = `${p.name}\n${p.price}`;
+    el.addEventListener('click', () => {
+      selectedProduct = p;
+      document.querySelectorAll('.switcher-item').forEach(s=>s.classList.remove('active'));
+      el.classList.add('active');
+      if (panelVisible && selectedObj) {
+        document.getElementById('panel-name').textContent = p.name;
+        document.getElementById('panel-price').textContent = p.price;
+        document.getElementById('panel-dim').textContent = p.dim;
+      }
+      showToast(`Selected: ${p.name}`);
+    });
+    sw.appendChild(el);
+  });
+
+  // AR category filter tabs
+  let arCatRow = document.getElementById('ar-cat-row');
+  if (!arCatRow) {
+    arCatRow = document.createElement('div');
+    arCatRow.id = 'ar-cat-row';
+    arCatRow.style.cssText = 'position:absolute;top:110px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:6px;opacity:0;transition:opacity 0.5s;';
+    document.getElementById('ar-screen').appendChild(arCatRow);
+  }
+  arCatRow.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.style.cssText = `padding:5px 12px;border-radius:20px;border:1px solid ${cat.key===activeCategory?'var(--accent)':'rgba(255,255,255,0.1)'};background:${cat.key===activeCategory?'rgba(200,169,110,0.15)':'rgba(10,10,12,0.75)'};color:${cat.key===activeCategory?'var(--accent)':'rgba(240,236,228,0.7)'};font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;backdrop-filter:blur(18px);white-space:nowrap;`;
+    btn.textContent = `${cat.emoji} ${cat.label}`;
+    btn.addEventListener('click', () => {
+      activeCategory = cat.key;
+      updateSwitcher();
+      if (!filteredProducts().includes(selectedProduct)) selectedProduct = filteredProducts()[0];
+      showToast(`Showing: ${cat.label}`);
+    });
+    arCatRow.appendChild(btn);
+  });
+  document.getElementById('ar-cat-row')?.classList?.remove('visible');
+}
+
+function showARCatRow() {
+  const row = document.getElementById('ar-cat-row');
+  if (row) row.style.opacity = '1';
+}
+
+// ─────────────────────────────────────────────
+//  PANEL BUTTONS
+// ─────────────────────────────────────────────
+document.getElementById('btn-rotate').addEventListener('click', () => {
+  if (selectedObj) {
+    selectedObj.rotation.y += Math.PI/4;
+    showToast('↻ Rotated 45°');
+  }
+});
+document.getElementById('btn-remove').addEventListener('click', () => {
+  if (placedObjects.length === 0) { showToast('Nothing to remove'); return; }
+  const obj = placedObjects.pop();
+  scene.remove(obj);
+  selectedObj = placedObjects[placedObjects.length-1] || null;
+  updateBadge();
+  if (placedObjects.length === 0) {
+    document.getElementById('ar-panel').classList.remove('visible');
+    panelVisible = false;
+  } else { showPanel(); }
+  showToast('🗑 Removed', 'danger');
+});
+document.getElementById('btn-cart').addEventListener('click', () => {
+  showToast('🛒 Added to cart!', 'green');
+  document.getElementById('btn-cart').textContent = '✓ In Cart';
+  setTimeout(()=>{ document.getElementById('btn-cart').textContent = 'Add to Cart'; }, 2000);
+});
+document.getElementById('btn-back').addEventListener('click', exitAR);
+document.getElementById('btn-flashlight').addEventListener('click', () => {
+  pointLight.intensity = pointLight.intensity > 0.1 ? 0.05 : 0.8;
+  showToast(pointLight.intensity > 0.1 ? '🔆 Lights on' : '🔅 Lights off');
+});
+
+// ─────────────────────────────────────────────
+//  AR LAUNCH / EXIT
+// ─────────────────────────────────────────────
+document.getElementById('ar-launch-btn').addEventListener('click', launchAR);
+
+async function launchAR() {
+  document.getElementById('landing').classList.add('hidden');
+  document.getElementById('ar-screen').classList.add('active');
+  onResize();
+  updateSwitcher();
+
+  // Check WebXR
+  const note = document.getElementById('webxr-note');
+  if (navigator.xr) {
+    const supported = await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false);
+    if (supported) {
+      note.textContent = '✓ WebXR AR detected — full AR mode available';
+      startWebXR();
+      return;
+    }
+  }
+
+  // Fallback: simulated AR
+  startSimulatedAR();
+}
+
+function exitAR() {
+  document.getElementById('ar-screen').classList.remove('active');
+  document.getElementById('landing').classList.remove('hidden');
+  // Clear scene
+  placedObjects.forEach(o=>scene.remove(o));
+  placedObjects = [];
+  selectedObj = null;
+  panelVisible = false;
+  surfaceDetected = false;
+  document.getElementById('ar-panel').classList.remove('visible');
+  updateBadge();
+  // Reset camera
+  camTheta=0; camPhi=Math.PI/6; camRadius=3;
+  updateCamera();
+}
+
+// ─────────────────────────────────────────────
+//  SIMULATED AR (fallback)
+// ─────────────────────────────────────────────
+function startSimulatedAR() {
+  const status = document.getElementById('ar-status');
+  const reticle = document.getElementById('reticle');
+  const tap = document.getElementById('tap-indicator');
+  const hints = document.getElementById('gesture-hints');
+  const switcher = document.getElementById('product-switcher');
+
+  // Simulate surface detection delay
+  setTimeout(() => {
+    surfaceDetected = true;
+    status.classList.add('hidden');
+    reticle.classList.add('visible');
+    tap.classList.add('visible');
+    hints.classList.add('visible');
+    switcher.classList.add('visible');
+    showToast('🟢 Surface detected! Tap to place', 'green');
+    showARCatRow();
+    setTimeout(()=>{ tap.classList.remove('visible'); }, 4000);
+  }, 2000);
+}
+
+// ─────────────────────────────────────────────
+//  WEBXR (real AR)
+// ─────────────────────────────────────────────
+async function startWebXR() {
+  try {
+    renderer.xr.enabled = true;
+    const session = await navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay'],
+      domOverlay: { root: document.getElementById('ar-screen') }
+    });
+    renderer.xr.setSession(session);
+
+    // Hide fallback camera bg
+    document.getElementById('fallback-camera').style.display = 'none';
+
+    let hitTestSource = null;
+    const refSpace = await session.requestReferenceSpace('viewer');
+    hitTestSource = await session.requestHitTestSource({ space: refSpace });
+
+    const xrReticle = new THREE.Mesh(
+      new THREE.RingGeometry(0.1, 0.14, 32),
+      new THREE.MeshBasicMaterial({ color:0xc8a96e, opacity:0.8, transparent:true, side:THREE.DoubleSide })
+    );
+    xrReticle.rotation.x = -Math.PI/2;
+    xrReticle.visible = false;
+    scene.add(xrReticle);
+
+    const status = document.getElementById('ar-status');
+    let surfaceFound = false;
+
+    renderer.setAnimationLoop((timestamp, xrFrame) => {
+      if (xrFrame && hitTestSource) {
+        const results = xrFrame.getHitTestResults(hitTestSource);
+        if (results.length) {
+          const pose = results[0].getPose(renderer.xr.getReferenceSpace());
+          xrReticle.visible = true;
+          xrReticle.matrix.fromArray(pose.transform.matrix);
+          xrReticle.matrix.decompose(xrReticle.position, xrReticle.quaternion, new THREE.Vector3());
+          if (!surfaceFound) {
+            surfaceFound = true; surfaceDetected = true;
+            status.classList.add('hidden');
+            document.getElementById('reticle').classList.add('visible');
+            document.getElementById('tap-indicator').classList.add('visible');
+            document.getElementById('gesture-hints').classList.add('visible');
+            document.getElementById('product-switcher').classList.add('visible');
+            showToast('🟢 Surface detected! Tap to place', 'green');
+            showARCatRow();
+            setTimeout(()=>{ document.getElementById('tap-indicator').classList.remove('visible'); }, 4000);
+          }
+          // Tap in XR
+          session.addEventListener('select', () => {
+            const obj = buildFurniture(selectedProduct);
+            obj.position.copy(xrReticle.position);
+            obj.userData = { product: selectedProduct, scale:1, rotY:0 };
+            scene.add(obj);
+            placedObjects.push(obj);
+            selectedObj = obj;
+            updateBadge();
+            showPanel();
+          });
+        } else {
+          xrReticle.visible = false;
         }
-
-        .ar-button:active {
-            transform: translateX(-50%) scale(0.95);
-        }
-
-        .ar-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .control-btn {
-            width: 48px;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: none;
-            border-radius: 24px;
-            font-size: 20px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            transition: all 0.2s ease;
-        }
-
-        .control-btn:active {
-            transform: scale(0.9);
-        }
-    </style>
-
-    <script>
-        // Furniture Database
-        const furnitureDatabase = [
-            { id: 1, name: 'Modern Sofa', category: 'sofa', price: 45000, icon: '🛋️', model: 'models/sofa.glb' },
-            { id: 2, name: 'L-Shape Sofa', category: 'sofa', price: 62000, icon: '🛋️', model: 'models/sofa_l.glb' },
-            { id: 3, name: 'Loveseat', category: 'sofa', price: 35000, icon: '🪑', model: 'models/loveseat.glb' },
-            { id: 4, name: 'Dining Table', category: 'table', price: 38000, icon: '🍽️', model: 'models/dining_table.glb' },
-            { id: 5, name: 'Coffee Table', category: 'table', price: 12000, icon: '☕', model: 'models/coffee_table.glb' },
-            { id: 6, name: 'Study Desk', category: 'table', price: 18000, icon: '📚', model: 'models/study_table.glb' },
-            { id: 7, name: 'King Bed', category: 'bed', price: 55000, icon: '🛏️', model: 'models/king_bed.glb' },
-            { id: 8, name: 'Queen Bed', category: 'bed', price: 42000, icon: '🛏️', model: 'models/queen_bed.glb' },
-            { id: 9, name: 'Office Chair', category: 'chair', price: 15000, icon: '🪑', model: 'models/office_chair.glb' },
-            { id: 10, name: 'Gaming Chair', category: 'chair', price: 22000, icon: '🎮', model: 'models/gaming_chair.glb' },
-            { id: 11, name: 'Accent Chair', category: 'chair', price: 18000, icon: '🪑', model: 'models/accent_chair.glb' },
-            { id: 12, name: 'Recliner', category: 'chair', price: 28000, icon: '🪑', model: 'models/recliner.glb' }
-        ];
-
-        // Global state
-        let cart = [];
-        let selectedFurniture = null;
-        let currentCategory = 'all';
-        let drawerExpanded = false;
-        let inAR = false;
-
-        // Three.js variables
-        let scene, camera, renderer, reticle, hitTestSource, hitTestSourceRequested;
-        let currentModel = null;
-        let loadedModels = {}; // Cache for loaded models
-
-        // DOM elements
-        const drawer = document.getElementById('drawer');
-        const drawerHandle = document.getElementById('drawer-handle');
-        const instructions = document.getElementById('instructions');
-        const rescanBtn = document.getElementById('rescan-btn');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const modelBadge = document.getElementById('model-badge');
-        const deleteBtn = document.getElementById('delete-btn');
-        const wishlistBtn = document.getElementById('wishlist-btn');
-        const cartBtn = document.getElementById('cart-btn');
-        const arButton = document.getElementById('ar-button');
-        const arControls = document.getElementById('ar-controls');
-
-        // Initialize Three.js scene
-        function initThreeJS() {
-            const container = document.getElementById('canvas-container');
-
-            // Scene
-            scene = new THREE.Scene();
-
-            // Camera
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.xr.enabled = true;
-            container.appendChild(renderer.domElement);
-
-            // Lighting
-            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-            light.position.set(0.5, 1, 0.25);
-            scene.add(light);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            directionalLight.position.set(0, 5, 5);
-            directionalLight.castShadow = true;
-            scene.add(directionalLight);
-
-            // Reticle (placement indicator)
-            const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
-            const material = new THREE.MeshBasicMaterial({ color: 0x007AFF });
-            reticle = new THREE.Mesh(geometry, material);
-            reticle.matrixAutoUpdate = false;
-            reticle.visible = false;
-            scene.add(reticle);
-
-            // Check WebXR support
-            if ('xr' in navigator) {
-                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-                    if (supported) {
-                        arButton.disabled = false;
-                        arButton.textContent = 'View in Your Room';
-                    } else {
-                        arButton.disabled = true;
-                        arButton.textContent = 'AR Not Supported';
-                    }
-                });
-            } else {
-                arButton.disabled = true;
-                arButton.textContent = 'AR Not Available';
-            }
-
-            // Start animation loop
-            renderer.setAnimationLoop(render);
-
-            // Handle window resize
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // Load GLTF model
-        function loadModel(modelPath, callback) {
-            // Check cache first
-            if (loadedModels[modelPath]) {
-                callback(loadedModels[modelPath].clone());
-                return;
-            }
-
-            loadingOverlay.classList.add('show');
-            const loader = new THREE.GLTFLoader();
-
-            loader.load(
-                modelPath,
-                (gltf) => {
-                    const model = gltf.scene;
-
-                    // Center and scale model
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-
-                    // Scale to reasonable size (max 1 meter)
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 1.0 / maxDim;
-                    model.scale.multiplyScalar(scale);
-
-                    // Center the model
-                    model.position.sub(center.multiplyScalar(scale));
-
-                    // Cache the model
-                    loadedModels[modelPath] = model;
-
-                    loadingOverlay.classList.remove('show');
-                    callback(model.clone());
-                },
-                (progress) => {
-                    // Progress callback
-                    const percent = (progress.loaded / progress.total) * 100;
-                    console.log(`Loading: ${percent.toFixed(2)}%`);
-                },
-                (error) => {
-                    console.error('Error loading model:', error);
-                    loadingOverlay.classList.remove('show');
-                    showToast('Failed to load model', 3000);
-                }
-            );
-        }
-
-        // AR Session Management
-        arButton.addEventListener('click', async () => {
-            if (!selectedFurniture) {
-                showToast('Please select a furniture item first');
-                return;
-            }
-
-            try {
-                const session = await navigator.xr.requestSession('immersive-ar', {
-                    requiredFeatures: ['hit-test'],
-                    optionalFeatures: ['dom-overlay'],
-                    domOverlay: { root: document.body }
-                });
-
-                renderer.xr.setSession(session);
-                session.addEventListener('end', onSessionEnd);
-
-                inAR = true;
-                instructions.classList.add('show');
-                rescanBtn.style.display = 'block';
-                arControls.style.display = 'flex';
-                arButton.style.display = 'none';
-
-                // Load current furniture model for AR
-                if (selectedFurniture) {
-                    loadModel(selectedFurniture.model, (model) => {
-                        if (currentModel) {
-                            scene.remove(currentModel);
-                        }
-                        currentModel = model;
-                    });
-                }
-
-            } catch (error) {
-                console.error('Error starting AR session:', error);
-                showToast('Failed to start AR session');
-            }
-        });
-
-        function onSessionEnd() {
-            inAR = false;
-            instructions.classList.remove('show');
-            rescanBtn.style.display = 'none';
-            arControls.style.display = 'none';
-            arButton.style.display = 'block';
-
-            hitTestSourceRequested = false;
-            hitTestSource = null;
-            reticle.visible = false;
-
-            if (currentModel && currentModel.parent === scene) {
-                // Keep model in scene for preview
-            }
-        }
-
-        // Render loop
-        function render(timestamp, frame) {
-            if (frame) {
-                const referenceSpace = renderer.xr.getReferenceSpace();
-                const session = renderer.xr.getSession();
-
-                // Hit testing
-                if (!hitTestSourceRequested) {
-                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
-                        session.requestHitTestSource({ space: referenceSpace }).then((source) => {
-                            hitTestSource = source;
-                        });
-                    });
-
-                    hitTestSourceRequested = true;
-                }
-
-                if (hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-
-                    if (hitTestResults.length > 0) {
-                        const hit = hitTestResults[0];
-                        const pose = hit.getPose(referenceSpace);
-
-                        reticle.visible = true;
-                        reticle.matrix.fromArray(pose.transform.matrix);
-
-                        // Update instruction
-                        document.getElementById('instruction-text').textContent = 'Tap to place furniture';
-                    } else {
-                        reticle.visible = false;
-                        document.getElementById('instruction-text').textContent = 'Point camera at floor';
-                    }
-                }
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        // Place model at reticle position
-        function onSelect() {
-            if (!inAR || !reticle.visible || !currentModel) return;
-
-            const model = currentModel.parent === scene ? currentModel : currentModel.clone();
-
-            if (model.parent !== scene) {
-                scene.add(model);
-                currentModel = model;
-            }
-
-            model.position.setFromMatrixPosition(reticle.matrix);
-            model.visible = true;
-
-            showToast('Furniture placed');
-        }
-
-        // Handle screen tap for placement
-        renderer.domElement.addEventListener('click', onSelect);
-
-        // AR Controls
-        document.getElementById('rotate-left').addEventListener('click', () => {
-            if (currentModel && currentModel.parent === scene) {
-                currentModel.rotation.y += Math.PI / 8;
-            }
-        });
-
-        document.getElementById('rotate-right').addEventListener('click', () => {
-            if (currentModel && currentModel.parent === scene) {
-                currentModel.rotation.y -= Math.PI / 8;
-            }
-        });
-
-        document.getElementById('scale-up').addEventListener('click', () => {
-            if (currentModel && currentModel.parent === scene) {
-                currentModel.scale.multiplyScalar(1.1);
-            }
-        });
-
-        document.getElementById('scale-down').addEventListener('click', () => {
-            if (currentModel && currentModel.parent === scene) {
-                currentModel.scale.multiplyScalar(0.9);
-            }
-        });
-
-        // Toast notification
-        function showToast(message, duration = 2000) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, duration);
-        }
-
-        // Update UI state
-        function updateUIState() {
-            const hasSelection = selectedFurniture !== null;
-            const hasCartItems = cart.length > 0;
-
-            deleteBtn.disabled = !hasSelection;
-            wishlistBtn.disabled = !hasCartItems;
-            cartBtn.disabled = !hasCartItems;
-            arButton.disabled = !hasSelection;
-        }
-
-        // Touch handling for drawer
-        let touchStartY = 0;
-        let touchCurrentY = 0;
-        let isDragging = false;
-
-        drawerHandle.addEventListener('touchstart', (e) => {
-            touchStartY = e.touches[0].clientY;
-            isDragging = true;
-        });
-
-        drawerHandle.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            touchCurrentY = e.touches[0].clientY;
-            const deltaY = touchCurrentY - touchStartY;
-
-            if (Math.abs(deltaY) > 5) {
-                e.preventDefault();
-            }
-        });
-
-        drawerHandle.addEventListener('touchend', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-
-            const deltaY = touchCurrentY - touchStartY;
-
-            if (Math.abs(deltaY) > 50) {
-                if (deltaY > 0) {
-                    collapseDrawer();
-                } else {
-                    expandDrawer();
-                }
-            } else {
-                toggleDrawer();
-            }
-        });
-
-        drawerHandle.addEventListener('click', toggleDrawer);
-
-        function toggleDrawer() {
-            if (drawerExpanded) {
-                collapseDrawer();
-            } else {
-                expandDrawer();
-            }
-        }
-
-        function expandDrawer() {
-            drawer.classList.remove('collapsed');
-            drawer.classList.add('expanded');
-            drawerExpanded = true;
-        }
-
-        function collapseDrawer() {
-            drawer.classList.remove('expanded');
-            drawer.classList.add('collapsed');
-            drawerExpanded = false;
-        }
-
-        // Render furniture grid
-        function renderFurnitureGrid() {
-            const grid = document.getElementById('furniture-grid');
-            const filtered = currentCategory === 'all'
-                ? furnitureDatabase
-                : furnitureDatabase.filter(f => f.category === currentCategory);
-
-            grid.innerHTML = filtered.map(item => `
-                <div class="furniture-card ${selectedFurniture?.id === item.id ? 'selected' : ''}" data-id="${item.id}">
-                    <div class="furniture-icon">${item.icon}</div>
-                    <div class="furniture-label">${item.name}</div>
-                    <div class="furniture-price">₹${(item.price / 1000).toFixed(0)}k</div>
-                </div>
-            `).join('');
-
-            grid.querySelectorAll('.furniture-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const id = parseInt(card.dataset.id);
-                    selectFurniture(id);
-                });
-            });
-        }
-
-        // Select furniture
-        function selectFurniture(id) {
-            const furniture = furnitureDatabase.find(f => f.id === id);
-            if (!furniture) return;
-
-            selectedFurniture = furniture;
-
-            // Load model for preview (not in AR yet)
-            loadModel(furniture.model, (model) => {
-                if (!inAR) {
-                    // Show in preview mode
-                    if (currentModel) {
-                        scene.remove(currentModel);
-                    }
-                    currentModel = model;
-                    scene.add(model);
-                    model.position.set(0, 0, -2);
-                    model.visible = true;
-                }
-            });
-
-            renderFurnitureGrid();
-            addToCart();
-            updateUIState();
-
-            // Show model badge
-            modelBadge.textContent = `Viewing: ${furniture.name}`;
-            modelBadge.classList.add('show');
-            setTimeout(() => {
-                modelBadge.classList.remove('show');
-            }, 3000);
-        }
-
-        // Render cart
-        function renderCart() {
-            const container = document.getElementById('cart-items');
-
-            if (cart.length === 0) {
-                container.innerHTML = `
-                    <div class="cart-empty">
-                        <div class="cart-empty-icon">🛋️</div>
-                        <p>No items yet</p>
-                    </div>
-                `;
-                document.getElementById('total-cost').textContent = '₹0';
-                updateUIState();
-                return;
-            }
-
-            container.innerHTML = cart.map(item => `
-                <div class="cart-item">
-                    <div class="item-name">${item.name}</div>
-                    <div class="copies-control">
-                        <button class="copy-btn" onclick="updateQuantity(${item.id}, -1)">−</button>
-                        <span class="copy-count">${item.quantity}</span>
-                        <button class="copy-btn" onclick="updateQuantity(${item.id}, 1)">+</button>
-                    </div>
-                    <div class="item-cost">₹${(item.price * item.quantity).toLocaleString()}</div>
-                    <button class="remove-btn" onclick="removeItem(${item.id})">×</button>
-                </div>
-            `).join('');
-
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            document.getElementById('total-cost').textContent = '₹' + total.toLocaleString();
-            updateUIState();
-        }
-
-        // Update quantity
-        window.updateQuantity = function (id, change) {
-            const item = cart.find(i => i.id === id);
-            if (item) {
-                item.quantity = Math.max(1, item.quantity + change);
-                renderCart();
-            }
-        };
-
-        // Remove item
-        window.removeItem = function (id) {
-            cart = cart.filter(item => item.id !== id);
-            if (selectedFurniture?.id === id) {
-                selectedFurniture = null;
-                if (currentModel) {
-                    scene.remove(currentModel);
-                    currentModel = null;
-                }
-            }
-            renderCart();
-            renderFurnitureGrid();
-            showToast('Item removed');
-        };
-
-        // Add to cart
-        function addToCart() {
-            if (!selectedFurniture) return;
-
-            const existing = cart.find(item => item.id === selectedFurniture.id);
-            if (existing) {
-                existing.quantity++;
-                showToast(`${selectedFurniture.name} quantity updated`);
-            } else {
-                cart.push({ ...selectedFurniture, quantity: 1 });
-                showToast(`${selectedFurniture.name} added to cart`);
-            }
-            renderCart();
-        }
-
-        // Event Listeners
-        document.getElementById('category-select').addEventListener('change', (e) => {
-            currentCategory = e.target.value;
-            renderFurnitureGrid();
-        });
-
-        deleteBtn.addEventListener('click', () => {
-            if (selectedFurniture) {
-                removeItem(selectedFurniture.id);
-            }
-        });
-
-        cartBtn.addEventListener('click', () => {
-            if (cart.length > 0) {
-                showToast('✓ Items added to cart successfully!');
-            }
-        });
-
-        wishlistBtn.addEventListener('click', () => {
-            if (cart.length > 0) {
-                showToast('♥ Items added to wishlist!');
-            }
-        });
-
-        rescanBtn.addEventListener('click', () => {
-            if (currentModel && currentModel.parent === scene) {
-                scene.remove(currentModel);
-                currentModel = null;
-            }
-            showToast('Ready to place new item');
-        });
-
-        // Initialize on load
-        window.addEventListener('load', () => {
-            initThreeJS();
-            renderFurnitureGrid();
-            renderCart();
-            updateUIState();
-        });
-    </script>
+      }
+      renderer.render(scene, camera);
+    });
+
+    session.addEventListener('end', () => {
+      hitTestSource?.cancel();
+      renderer.setAnimationLoop(null);
+    });
+
+  } catch(err) {
+    console.warn('WebXR error:', err);
+    startSimulatedAR();
+  }
+}
+
+// ─────────────────────────────────────────────
+//  RENDER LOOP (non-XR)
+// ─────────────────────────────────────────────
+function animate() {
+  if (!renderer.xr.enabled) {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+}
+animate();
+
+// ─────────────────────────────────────────────
+//  RESIZE
+// ─────────────────────────────────────────────
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+
+// ─────────────────────────────────────────────
+//  WEBXR CHECK ON LANDING
+// ─────────────────────────────────────────────
+(async ()=>{
+  const note = document.getElementById('webxr-note');
+  if (navigator.xr) {
+    const ok = await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false);
+    note.textContent = ok
+      ? '✓ WebXR supported — full immersive AR available on this device'
+      : '⚠ WebXR AR not available — will use simulated AR preview';
+  } else {
+    note.textContent = '⚠ WebXR not supported on this browser — simulated AR mode will be used';
+  }
+})();
+</script>
 </body>
-
 </html>
