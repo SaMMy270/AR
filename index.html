@@ -189,22 +189,60 @@
     position: absolute; top: 50%; left: 50%; z-index: 10;
     transform: translate(-50%, -50%);
     background: var(--glass); border: 1px solid var(--glass-border);
-    backdrop-filter: var(--blur); border-radius: 20px;
-    padding: 16px 26px; text-align: center;
-    transition: opacity 0.5s ease;
+    backdrop-filter: var(--blur); border-radius: 24px;
+    padding: 24px 32px; text-align: center;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    min-width: 220px;
   }
-  .ar-status.hidden { opacity: 0; pointer-events: none; }
-  .ar-status-text { font-size: 14px; font-weight: 500; }
-  .ar-status-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .ar-status.hidden { opacity: 0; transform: translate(-50%, -50%) scale(0.9); pointer-events: none; }
+  .ar-status-text { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .ar-status-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
   .scan-ring {
-    width: 60px; height: 60px; margin: 0 auto 12px;
-    border: 2px solid var(--accent); border-radius: 50%;
-    border-top-color: transparent;
-    animation: spin 1.2s linear infinite;
+    width: 72px; height: 72px; margin: 0 auto 16px;
+    border-radius: 50%; position: relative;
+    border: 2px solid rgba(200,169,110,0.15);
+  }
+  .scan-ring::before {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+    animation: spin 1s linear infinite;
+  }
+  .scan-ring::after {
+    content: ''; position: absolute; inset: 8px; border-radius: 50%;
+    border: 2px solid transparent;
+    border-bottom-color: rgba(200,169,110,0.5);
+    animation: spin 1.6s linear infinite reverse;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Crosshair reticle */
+  /* Scan progress bar under status */
+  .scan-progress {
+    height: 2px; border-radius: 2px; margin-top: 16px;
+    background: rgba(255,255,255,0.08); overflow: hidden;
+  }
+  .scan-progress-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), #e8c98e);
+    border-radius: 2px;
+    animation: scan-fill 3s ease-out forwards;
+  }
+  @keyframes scan-fill { 0%{width:0%} 50%{width:60%} 85%{width:85%} 100%{width:100%} }
+
+  /* Dot grid scan overlay */
+  .scan-dots {
+    position: absolute; inset: 0; z-index: 8; pointer-events: none;
+    background-image: radial-gradient(circle, rgba(200,169,110,0.18) 1px, transparent 1px);
+    background-size: 28px 28px;
+    animation: dots-fade 3s ease-out forwards;
+  }
+  @keyframes dots-fade { 0%{opacity:0} 30%{opacity:1} 80%{opacity:0.4} 100%{opacity:0} }
+
+  /* Floor grid highlight on scan */
+  .floor-grid {
+    transition: opacity 0.8s ease;
+  }
   .reticle {
     position: absolute; top: 50%; left: 50%; z-index: 9;
     transform: translate(-50%, -50%);
@@ -415,11 +453,15 @@
   <!-- Placed badge -->
   <div class="placed-badge" id="placed-badge">0</div>
 
+  <!-- Dot grid scan overlay -->
+  <div class="scan-dots" id="scan-dots"></div>
+
   <!-- Scanning status -->
   <div class="ar-status" id="ar-status">
     <div class="scan-ring"></div>
-    <div class="ar-status-text">Scanning your room…</div>
-    <div class="ar-status-sub">Move your phone slowly to detect surfaces</div>
+    <div class="ar-status-text">Initializing AR…</div>
+    <div class="ar-status-sub">Point camera at a flat surface</div>
+    <div class="scan-progress"><div class="scan-progress-bar"></div></div>
   </div>
 
   <!-- Crosshair reticle -->
@@ -1068,6 +1110,11 @@ async function launchAR() {
   }
 
   // Fallback: simulated AR
+  // Restart scan animations fresh
+  const bar = document.querySelector('.scan-progress-bar');
+  if (bar) { bar.style.animation='none'; void bar.offsetWidth; bar.style.animation='scan-fill 3s ease-out forwards'; }
+  const dots = document.getElementById('scan-dots');
+  if (dots) { dots.style.display=''; dots.style.animation='none'; void dots.offsetWidth; dots.style.animation='dots-fade 3s ease-out forwards'; }
   startSimulatedAR();
 }
 
@@ -1081,6 +1128,29 @@ function exitAR() {
   panelVisible = false;
   surfaceDetected = false;
   document.getElementById('ar-panel').classList.remove('visible');
+  document.getElementById('reticle').classList.remove('visible');
+  document.getElementById('gesture-hints').classList.remove('visible');
+  document.getElementById('product-switcher').classList.remove('visible');
+  document.getElementById('tap-indicator').classList.remove('visible');
+  const arCatRow = document.getElementById('ar-cat-row');
+  if (arCatRow) arCatRow.style.opacity = '0';
+  // Reset scan UI
+  const status = document.getElementById('ar-status');
+  status.classList.remove('hidden');
+  status.querySelector('.ar-status-text').textContent = 'Initializing AR…';
+  status.querySelector('.ar-status-sub').textContent = 'Point camera at a flat surface';
+  status.querySelector('.scan-ring').style.borderColor = '';
+  const dots = document.getElementById('scan-dots');
+  if (dots) { dots.style.display = ''; dots.style.animation = 'none'; void dots.offsetWidth; dots.style.animation = ''; }
+  // Reset progress bar
+  const bar = status.querySelector('.scan-progress-bar');
+  if (bar) { bar.style.animation = 'none'; bar.style.width = '0%'; void bar.offsetWidth; }
+  // Stop camera stream if any
+  document.querySelectorAll('#fallback-camera video').forEach(v => {
+    if (v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
+    v.remove();
+  });
+  document.querySelector('.room-sim').style.opacity = '1';
   updateBadge();
   // Reset camera
   camTheta=0; camPhi=Math.PI/6; camRadius=3;
@@ -1088,27 +1158,121 @@ function exitAR() {
 }
 
 // ─────────────────────────────────────────────
-//  SIMULATED AR (fallback)
+//  SIMULATED AR  — animated scan + real camera
 // ─────────────────────────────────────────────
-function startSimulatedAR() {
-  const status = document.getElementById('ar-status');
-  const reticle = document.getElementById('reticle');
-  const tap = document.getElementById('tap-indicator');
-  const hints = document.getElementById('gesture-hints');
-  const switcher = document.getElementById('product-switcher');
+async function startSimulatedAR() {
+  const status    = document.getElementById('ar-status');
+  const reticle   = document.getElementById('reticle');
+  const tap       = document.getElementById('tap-indicator');
+  const hints     = document.getElementById('gesture-hints');
+  const switcher  = document.getElementById('product-switcher');
+  const scanRing  = status.querySelector('.scan-ring');
+  const statText  = status.querySelector('.ar-status-text');
+  const statSub   = status.querySelector('.ar-status-sub');
 
-  // Simulate surface detection delay
+  // ── Try to open the real camera ──
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true;
+    video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;';
+    document.getElementById('fallback-camera').appendChild(video);
+    // dim the room-sim overlay so camera shows through
+    document.querySelector('.room-sim').style.opacity = '0';
+    video.play().catch(()=>{});
+  } catch(e) {
+    // no camera permission — keep the simulated room background
+    console.warn('Camera not available, using simulated room:', e.message);
+  }
+
+  // ── Phase 1: Scanning (0–1.5 s) ──
+  statText.textContent = 'Scanning surfaces…';
+  statSub.textContent  = 'Move your device slowly';
+
+  // Animate a scan-line sweeping down across the screen
+  const scanLine = document.createElement('div');
+  scanLine.style.cssText = `
+    position:absolute; left:0; right:0; height:2px; z-index:11; pointer-events:none;
+    background:linear-gradient(90deg, transparent, var(--accent), transparent);
+    box-shadow:0 0 12px 4px var(--accent-glow);
+    top:0; transition:none;
+  `;
+  document.getElementById('ar-screen').appendChild(scanLine);
+
+  // Corner brackets that grow in
+  const brackets = document.createElement('div');
+  brackets.innerHTML = `
+    <div style="position:absolute;top:20%;left:10%;width:60px;height:60px;
+      border-top:2px solid var(--accent);border-left:2px solid var(--accent);
+      opacity:0;transition:opacity 0.4s;border-radius:4px 0 0 0;"></div>
+    <div style="position:absolute;top:20%;right:10%;width:60px;height:60px;
+      border-top:2px solid var(--accent);border-right:2px solid var(--accent);
+      opacity:0;transition:opacity 0.4s;border-radius:0 4px 0 0;"></div>
+    <div style="position:absolute;bottom:30%;left:10%;width:60px;height:60px;
+      border-bottom:2px solid var(--accent);border-left:2px solid var(--accent);
+      opacity:0;transition:opacity 0.4s;border-radius:0 0 0 4px;"></div>
+    <div style="position:absolute;bottom:30%;right:10%;width:60px;height:60px;
+      border-bottom:2px solid var(--accent);border-right:2px solid var(--accent);
+      opacity:0;transition:opacity 0.4s;border-radius:0 0 4px 0;"></div>
+  `;
+  brackets.style.cssText = 'position:absolute;inset:0;z-index:11;pointer-events:none;';
+  document.getElementById('ar-screen').appendChild(brackets);
+
+  // Animate scan line
+  let scanY = 0;
+  const screenH = window.innerHeight;
+  const scanInterval = setInterval(() => {
+    scanY = (scanY + 4) % screenH;
+    scanLine.style.top = scanY + 'px';
+  }, 16);
+
+  // Show brackets after 300ms
   setTimeout(() => {
+    brackets.querySelectorAll('div').forEach(b => b.style.opacity = '1');
+  }, 300);
+
+  // ── Phase 2: Detecting floor (1.5 s) ──
+  setTimeout(() => {
+    statText.textContent = 'Floor detected…';
+    statSub.textContent  = 'Mapping depth data';
+    scanRing.style.borderColor = '#5ce0a0';
+
+    // Pulse the floor grid
+    const grid = document.querySelector('.floor-grid');
+    if (grid) { grid.style.opacity = '1'; grid.style.transition = 'opacity 0.5s'; }
+  }, 1500);
+
+  // ── Phase 3: Ready (3 s) ──
+  setTimeout(() => {
+    clearInterval(scanInterval);
+    scanLine.remove();
+    brackets.querySelectorAll('div').forEach(b => b.style.opacity = '0');
+    setTimeout(() => brackets.remove(), 400);
+
     surfaceDetected = true;
     status.classList.add('hidden');
+    document.getElementById('scan-dots').style.display = 'none';
     reticle.classList.add('visible');
     tap.classList.add('visible');
     hints.classList.add('visible');
     switcher.classList.add('visible');
-    showToast('🟢 Surface detected! Tap to place', 'green');
     showARCatRow();
-    setTimeout(()=>{ tap.classList.remove('visible'); }, 4000);
-  }, 2000);
+    showToast('🟢 Floor detected — Tap to place furniture', 'green');
+
+    // Pulse reticle once to draw attention
+    reticle.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    reticle.style.transition = 'transform 0.4s ease';
+    setTimeout(() => {
+      reticle.style.transform = 'translate(-50%,-50%) scale(1)';
+    }, 400);
+
+    setTimeout(() => { tap.classList.remove('visible'); }, 5000);
+  }, 3000);
 }
 
 // ─────────────────────────────────────────────
