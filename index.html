@@ -8,293 +8,201 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap');
 
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --bg: #050807;
       --surface: #0a120e;
-      --glass: rgba(10, 18, 14, 0.85);
-      --glass-border: rgba(227, 196, 141, 0.15);
+      --glass: rgba(10, 18, 14, 0.9);
+      --glass-border: rgba(227, 196, 141, 0.2);
       --accent: #e3c48d;
-      --accent-glow: rgba(227, 196, 141, 0.3);
+      --accent-glow: rgba(227, 196, 141, 0.4);
       --emerald: #1aa06d;
-      --emerald-glow: rgba(26, 160, 109, 0.4);
-      --danger: #ff5c5c;
-      --success: #1aa06d;
       --text: #f0f4f2;
       --muted: rgba(240, 244, 242, 0.5);
-      --blur: blur(25px) saturate(1.8);
+      --blur: blur(30px) saturate(1.8);
       --transition: cubic-bezier(0.23, 1, 0.32, 1);
     }
 
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: var(--bg);
-      color: var(--text);
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg); color: var(--text);
       font-family: 'Outfit', sans-serif;
       -webkit-font-smoothing: antialiased;
-      -webkit-tap-highlight-color: transparent;
       touch-action: none;
     }
-
-    /* ── SCROLLBAR ── */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 10px; }
 
     /* ── LANDING SCREEN ── */
     #landing {
       position: fixed; inset: 0; z-index: 100;
       display: flex; flex-direction: column;
-      background: var(--bg);
-      transition: opacity 1s var(--transition);
-      overflow-y: auto; overflow-x: hidden;
+      background: var(--bg); transition: opacity 0.8s var(--transition);
+      overflow-y: auto;
     }
     #landing.hidden { opacity: 0; pointer-events: none; }
 
     .hero-section {
-      position: relative;
-      padding: 100px 24px 60px;
-      display: flex; flex-direction: column;
-      align-items: center; text-align: center;
-      min-height: 85vh;
-      justify-content: flex-end;
+      position: relative; padding: 100px 24px 60px;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; min-height: 80vh; justify-content: flex-end;
     }
 
-    .hero-bg {
-      position: absolute; inset: 0; z-index: -1;
-      overflow: hidden;
-    }
+    .hero-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
     .hero-image {
       position: absolute; inset: 0;
       background-image: url('ar_furniture_hero_1773244284518.png');
       background-size: cover; background-position: center;
-      filter: brightness(0.4) contrast(1.1) saturate(0.8);
-      transform: scale(1.1);
-      animation: slowZoom 30s linear infinite alternate;
+      filter: brightness(0.4) contrast(1.1);
+      transform: scale(1.1); animation: slowZoom 40s linear infinite alternate;
     }
     .hero-gradient {
       position: absolute; inset: 0;
-      background: linear-gradient(to bottom, 
-        rgba(5, 8, 7, 0.2) 0%, 
-        rgba(5, 8, 7, 0.5) 40%, 
-        var(--bg) 100%
-      );
+      background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
     }
-    
     @keyframes slowZoom { from { transform: scale(1); } to { transform: scale(1.2); } }
 
     .brand-tag {
       font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase;
       color: var(--accent); font-weight: 700; margin-bottom: 24px;
-      padding: 8px 20px; border-radius: 30px;
+      padding: 10px 24px; border-radius: 40px;
       border: 1px solid var(--glass-border);
       background: var(--glass); backdrop-filter: var(--blur);
     }
-    
+
     .landing h1 {
       font-family: 'Playfair Display', serif;
-      font-size: clamp(2.8rem, 10vw, 4.8rem);
-      font-weight: 400; line-height: 1.05;
-      margin-bottom: 20px; letter-spacing: -0.02em;
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 400; line-height: 1.1;
+      margin-bottom: 24px; letter-spacing: -0.02em;
     }
-    .landing h1 em { color: var(--accent); font-style: italic; font-weight: 400; }
-    
+    .landing h1 em { color: var(--accent); font-style: italic; }
+
     .landing-sub {
-      font-size: 17px; color: var(--muted);
-      max-width: 360px; line-height: 1.6; margin-bottom: 50px;
-      font-weight: 300;
+      font-size: 17px; color: var(--muted); max-width: 400px;
+      line-height: 1.6; margin-bottom: 40px; font-weight: 300;
     }
 
-    /* Category Filter */
-    .catalog-container {
-      background: var(--bg);
-      padding-bottom: 80px;
-    }
-
-    .category-tabs {
-      display: flex; gap: 12px;
-      overflow-x: auto; scrollbar-width: none;
-      padding: 0 24px 24px;
-      justify-content: flex-start;
-    }
-    .category-tabs::-webkit-scrollbar { display: none; }
-    
-    .cat-tab {
-      padding: 12px 24px; border-radius: 40px;
-      background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
-      color: var(--muted); font-size: 14px; font-weight: 600;
-      white-space: nowrap; cursor: pointer; transition: 0.3s;
-    }
-    .cat-tab.active {
-      background: var(--accent); color: #000; border-color: var(--accent);
-      box-shadow: 0 10px 20px var(--accent-glow);
-    }
-
-    /* Product Grid */
+    /* Catalog Grid */
+    .catalog-section { background: var(--bg); padding: 0 24px 80px; }
     .product-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 20px;
-      padding: 0 24px;
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 16px; max-width: 1200px; margin: 0 auto;
     }
 
     .product-card {
-      background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
-      border: 1px solid var(--glass-border);
-      border-radius: 28px; padding: 16px;
-      cursor: pointer; transition: all 0.4s var(--transition);
-      position: relative; overflow: hidden;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+      border-radius: 24px; padding: 12px; cursor: pointer;
+      transition: all 0.4s var(--transition);
     }
-    .product-card.active {
-      border-color: var(--accent);
-      background: rgba(227, 196, 141, 0.05);
-      box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow);
-    }
-    .product-card:hover { transform: translateY(-8px); border-color: var(--accent); }
+    .product-card.active { border-color: var(--accent); background: rgba(227, 196, 141, 0.05); }
+    .product-card:hover { transform: translateY(-5px); border-color: var(--accent); }
 
-    .card-img-box {
-      width: 100%; aspect-ratio: 1;
+    .card-img {
+      width: 100%; aspect-ratio: 1; border-radius: 16px;
       background-size: cover; background-position: center;
-      border-radius: 20px; margin-bottom: 16px;
-      filter: grayscale(0.2) brightness(0.9);
-      transition: 0.4s;
+      margin-bottom: 12px; filter: brightness(0.8);
     }
-    .product-card:hover .card-img-box { filter: grayscale(0) brightness(1.1); }
-    
-    .card-info { padding: 4px; }
-    .card-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-    .card-price { font-size: 17px; font-weight: 700; color: var(--accent); }
+    .card-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .card-price { font-size: 15px; color: var(--accent); font-weight: 700; }
 
-    .launch-btn-container {
-      padding: 40px 24px; display: flex; flex-direction: column; align-items: center;
-    }
-    .ar-btn {
-      padding: 22px 50px; border-radius: 100px;
+    .launch-container { padding: 40px 24px; display: flex; flex-direction: column; align-items: center; }
+    .ar-launch-btn {
+      padding: 20px 48px; border-radius: 100px;
       background: var(--accent); border: none;
-      color: #050807; font-size: 17px; font-weight: 800;
-      cursor: pointer; transition: all 0.4s var(--transition);
-      text-transform: uppercase; letter-spacing: 0.1em;
-      box-shadow: 0 15px 35px var(--accent-glow);
+      color: #000; font-size: 17px; font-weight: 800;
+      cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em;
+      box-shadow: 0 15px 35px var(--accent-glow); transition: 0.4s;
     }
-    .ar-btn:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 45px var(--accent-glow); background: #f0d5a7; }
+    .ar-launch-btn:hover { transform: scale(1.05); box-shadow: 0 20px 45px var(--accent-glow); }
 
     /* ── AR SCREEN ── */
     #ar-screen {
-      position: fixed; inset: 0; z-index: 50;
-      display: none; background: #000;
+      position: fixed; inset: 0; z-index: 50; display: none;
     }
-    #ar-screen.active { display: flex; flex-direction: column; }
+    #ar-screen.active { display: block; }
 
-    #three-canvas { position: absolute; inset: 0; z-index: 1; }
-    #fallback-camera { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+    #three-canvas { position: absolute; inset: 0; z-index: 2; }
+    #camera-overlay { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: #000; }
 
-    .ar-topbar {
-      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
-      display: flex; align-items: center; justify-content: space-between;
+    .ar-ui { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+    .ar-ui > * { pointer-events: auto; }
+
+    .top-bar {
       padding: 50px 24px 20px;
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
     }
-    .btn-circle {
-      width: 44px; height: 44px; border-radius: 50%;
+    .btn-icon {
+      width: 48px; height: 48px; border-radius: 50%;
       background: var(--glass); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); display: flex; align-items: center;
-      justify-content: center; color: var(--text); cursor: pointer;
+      backdrop-filter: var(--blur); display: flex; align-items: center; justify-content: center;
+      color: #fff; cursor: pointer; font-size: 20px;
     }
 
     .ar-status {
-      position: absolute; top: 50%; left: 50%; z-index: 10;
-      transform: translate(-50%, -50%);
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: var(--glass); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); border-radius: 34px;
-      padding: 30px 40px; text-align: center;
-      width: calc(100% - 48px); max-width: 320px;
-      transition: all 0.6s var(--transition);
+      backdrop-filter: var(--blur); border-radius: 30px;
+      padding: 30px; text-align: center; width: calc(100% - 48px); max-width: 320px;
     }
-    .ar-status.hidden { opacity: 0; transform: translate(-50%, -50%) scale(0.9); pointer-events: none; }
+    .ar-status.hidden { display: none; }
 
     .scan-ring {
-      width: 70px; height: 70px; margin: 0 auto 24px;
-      border: 3px solid rgba(227, 196, 141, 0.1);
-      border-top-color: var(--accent); border-radius: 50%;
-      animation: spin 1s infinite cubic-bezier(0.5, 0, 0.5, 1);
+      width: 60px; height: 60px; border: 3px solid rgba(227,196,141,0.1);
+      border-top-color: var(--accent); border-radius: 50%; margin: 0 auto 20px;
+      animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .reticle {
-      position: absolute; top: 50%; left: 50%; z-index: 5;
-      transform: translate(-50%, -50%);
-      width: 90px; height: 90px; pointer-events: none;
-      opacity: 0; transition: all 0.5s var(--transition);
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 80px; height: 80px; pointer-events: none; opacity: 0; transition: 0.4s;
     }
     .reticle.visible { opacity: 1; }
 
-    .ar-panel {
-      position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
+    .bottom-panel {
+      position: absolute; bottom: 0; left: 0; right: 0;
       background: var(--glass); border-top: 1px solid var(--glass-border);
       backdrop-filter: var(--blur); border-radius: 32px 32px 0 0;
-      padding: 24px 28px 48px;
-      transform: translateY(100%); transition: transform 0.6s var(--transition);
+      padding: 24px 28px 48px; transform: translateY(100%); transition: 0.6s var(--transition);
     }
-    .ar-panel.active { transform: translateY(0); }
+    .bottom-panel.active { transform: translateY(0); }
 
     .panel-actions { display: flex; gap: 12px; margin-top: 24px; }
     .action-btn {
-      flex: 1; padding: 18px; border-radius: 32px;
-      border: 1px solid var(--glass-border);
-      background: rgba(255,255,255,0.06);
-      color: var(--text); font-weight: 700; cursor: pointer;
-      font-size: 14px; transition: 0.3s;
+      flex: 1; padding: 18px; border-radius: 30px;
+      border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05);
+      color: #fff; font-weight: 700; cursor: pointer;
     }
-    .action-btn.primary { background: var(--accent); color: #000; border: none; flex: 1.5; }
-    .action-btn.danger { flex: 0.6; color: var(--danger); border-color: rgba(255, 92, 92, 0.2); }
+    .action-btn.primary { background: var(--accent); color: #000; border: none; }
 
-    .product-scroller {
-      position: absolute; bottom: 120px; left: 0; right: 0; z-index: 10;
-      padding: 0 24px; display: flex; gap: 12px; overflow-x: auto;
+    .product-switcher {
+      position: absolute; bottom: 130px; left: 0; right: 0;
+      display: flex; gap: 12px; padding: 0 24px; overflow-x: auto;
       scrollbar-width: none;
     }
-    .product-scroller::-webkit-scrollbar { display: none; }
-    .scroll-item {
-      width: 60px; height: 60px; border-radius: 18px;
+    .switcher-item {
+      width: 54px; height: 54px; border-radius: 16px;
       background: var(--glass); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); display: flex; align-items: center;
-      justify-content: center; font-size: 26px; cursor: pointer;
-      transition: 0.3s;
+      backdrop-filter: var(--blur); display: flex; align-items: center; justify-content: center;
+      font-size: 24px; cursor: pointer; transition: 0.3s;
     }
-    .scroll-item.active { border-color: var(--accent); background: rgba(227,196,141,0.1); transform: scale(1.1); }
+    .switcher-item.active { border-color: var(--accent); transform: scale(1.1); }
 
     .toast {
-      position: fixed; top: 120px; left: 50%; transform: translateX(-50%) translateY(-20px);
-      z-index: 200; background: rgba(10,18,14,0.95); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); border-radius: 24px;
-      padding: 14px 28px; font-size: 14px; font-weight: 600;
-      opacity: 0; transition: all 0.4s var(--transition);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5); pointer-events: none;
+      position: fixed; top: 110px; left: 50%; transform: translateX(-50%);
+      background: var(--glass); border: 1px solid var(--glass-border);
+      backdrop-filter: var(--blur); padding: 12px 24px; border-radius: 20px;
+      font-size: 14px; font-weight: 600; opacity: 0; transition: 0.4s;
+      z-index: 200; pointer-events: none;
     }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.show { opacity: 1; top: 125px; }
 
-    /* ── RESPONSIVE ── */
-    @media (min-width: 1024px) {
-      .product-grid { grid-template-columns: repeat(4, 1fr); padding: 0 10%; }
-      .category-tabs { justify-content: center; }
-      .landing h1 { font-size: 5rem; }
-      .ar-panel { left: 50%; width: 500px; transform: translateX(-50%) translateY(100%); border-radius: 32px; margin-bottom: 24px; }
-      .ar-panel.active { transform: translateX(-50%) translateY(0); }
-    }
-
-    @media (max-width: 600px) {
-      .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-      .hero-section { min-height: 80vh; padding-top: 60px; }
+    @media (min-width: 768px) {
+      .product-grid { grid-template-columns: repeat(4, 1fr); gap: 24px; }
+      .bottom-panel { left: 50%; width: 500px; transform: translateX(-50%) translateY(100%); border-radius: 32px; margin-bottom: 24px; }
+      .bottom-panel.active { transform: translateX(-50%) translateY(0); }
     }
   </style>
 </head>
@@ -302,266 +210,236 @@
 <body>
   <div id="landing">
     <div class="hero-section">
-      <div class="hero-bg">
-        <div class="hero-image"></div>
-        <div class="hero-gradient"></div>
-      </div>
+      <div class="hero-bg"><div class="hero-image"></div><div class="hero-gradient"></div></div>
       <div class="brand-tag">✦ AR Design Studio</div>
-      <h1>Transform your<br><em>living</em> space.</h1>
-      <p class="landing-sub">Experience designer furniture in your home with high-fidelity AR multi-placement.</p>
-      <div class="launch-btn-container">
-        <button class="ar-btn" id="ar-launch-btn">Open AR Designer</button>
-        <p id="webxr-note" style="font-size:12px; margin-top:18px; color:var(--muted)"></p>
+      <h1>Live in your <em>dream</em><br>interior, today.</h1>
+      <p class="landing-sub">Staged with high-fidelity AR models and real-world multi-placement logic.</p>
+      <div class="launch-container">
+        <button class="ar-launch-btn" id="launch-btn">Enter AR Studio</button>
+        <p id="webxr-status" style="font-size:12px; margin-top:15px; color:var(--muted)"></p>
       </div>
     </div>
-    
-    <div class="catalog-container">
-      <div class="category-tabs" id="cat-tabs">
-        <div class="cat-tab active" data-cat="all">All Items</div>
-        <div class="cat-tab" data-cat="sofa">Sofas</div>
-        <div class="cat-tab" data-cat="table">Tables</div>
-        <div class="cat-tab" data-cat="bed">Beds</div>
-        <div class="cat-tab" data-cat="chair">Chairs</div>
-      </div>
-      <div class="product-grid" id="product-grid"></div>
+    <div class="catalog-section">
+      <div class="product-grid" id="catalog-grid"></div>
     </div>
   </div>
 
   <div id="ar-screen">
-    <div id="fallback-camera"></div>
+    <div id="camera-overlay"></div>
     <canvas id="three-canvas"></canvas>
     
-    <div class="ar-topbar">
-      <button class="btn-circle" id="btn-back">✕</button>
-      <span style="font-size:12px; font-weight:700; letter-spacing:4px">MULTI AR</span>
-      <button class="btn-circle" id="btn-flashlight">⚡</button>
-    </div>
+    <div class="ar-ui">
+      <div class="top-bar">
+        <button class="btn-icon" id="back-btn">✕</button>
+        <span style="font-size:12px; font-weight:700; letter-spacing:3px">AR STUDIO</span>
+        <button class="btn-icon">⚡</button>
+      </div>
 
-    <div class="ar-status" id="ar-status">
-      <div class="scan-ring"></div>
-      <div class="ar-status-text" style="font-size:18px; font-weight:700">Syncing Reality</div>
-      <div class="ar-status-sub" style="font-size:13px; color:var(--muted); margin-top:6px">Move your device slowly to map surface</div>
-    </div>
+      <div class="ar-status" id="scan-status">
+        <div class="scan-ring"></div>
+        <div style="font-size:18px; font-weight:700">Analyzing Room</div>
+        <div style="font-size:13px; color:var(--muted); margin-top:5px">Move your phone to detect the floor</div>
+      </div>
 
-    <div class="reticle" id="reticle">
-      <svg viewBox="0 0 64 64" fill="none">
-        <circle cx="32" cy="32" r="30" stroke="var(--accent)" stroke-width="0.5" stroke-dasharray="2 4" />
-        <circle cx="32" cy="32" r="3" fill="var(--accent)" />
-        <path d="M32 12V6M32 58V52M12 32H6M58 32H52" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </div>
+      <div class="reticle" id="reticle-ui">
+        <svg viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r="30" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4 4" />
+          <path d="M32 10V4M32 60V54M10 32H4M60 32H54" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="4" fill="var(--accent)" />
+        </svg>
+      </div>
 
-    <div class="product-scroller" id="ar-scroller"></div>
+      <div class="product-switcher" id="ar-switcher"></div>
 
-    <div class="ar-panel" id="ar-panel">
-      <div id="panel-name" style="font-family:'Playfair Display',serif; font-size:26px">Sofa</div>
-      <div id="panel-price" style="font-size:20px; color:var(--accent); font-weight:700; margin-top:4px">₹45,000</div>
-      <div class="panel-actions">
-        <button class="action-btn" id="btn-rotate">↺ Rotate</button>
-        <button class="action-btn danger" id="btn-remove">🗑</button>
-        <button class="action-btn primary" id="btn-cart">Add to Cart</button>
+      <div class="bottom-panel" id="ui-panel">
+        <div id="p-name" style="font-family:'Playfair Display',serif; font-size:26px">Sofa</div>
+        <div id="p-price" style="font-size:20px; color:var(--accent); font-weight:700">₹45,000</div>
+        <div class="panel-actions">
+          <button class="action-btn" id="rotate-obj">↺ Rotate</button>
+          <button class="action-btn" id="remove-obj" style="color:var(--danger)">🗑 Remove</button>
+          <button class="action-btn primary">Add to Cart</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast-msg"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
   <script>
     const PRODUCTS = [
-      { id: 'sofa', name: 'Velvet Sofa', cat:'sofa', price: '₹45,000', img: './images/sofa.jpg', model: './models/sofa-v1.glb', emoji: '🛋️' },
-      { id: 'table', name: 'Architect Desk', cat:'table', price: '₹18,000', img: './images/table1.webp', model: './models/study_table-v2.glb', emoji: '🍽️' },
-      { id: 'bed', name: 'Imperial Bed', cat:'bed', price: '₹32,000', img: './images/bed1.jpg', model: './models/single_bed-v1.glb', emoji: '🛏️' },
-      { id: 'chair', name: 'Gaming Chair', cat:'chair', price: '₹22,000', img: './images/gamingchair.webp', model: './models/gaming_chair-v1.glb', emoji: '🎮' }
+      { id:'sofa', name:'Velvet Elite Sofa', price:'₹45,000', model:'./models/sofa-v1.glb', img:'./images/sofa.jpg', icon:'🛋️' },
+      { id:'table', name:'Architect Table', price:'₹18,000', model:'./models/study_table-v2.glb', img:'./images/table1.webp', icon:'🍽️' },
+      { id:'bed', name:'Majestic Bed', price:'₹32,000', model:'./models/single_bed-v1.glb', img:'./images/bed1.jpg', icon:'🛏️' },
+      { id:'chair', name:'Carbon Gaming Chair', price:'₹22,000', model:'./models/gaming_chair-v1.glb', img:'./images/gamingchair.webp', icon:'🎮' }
     ];
 
-    let selectedProduct = PRODUCTS[0];
-    let placedObjects = [];
-    let selectedObj = null;
-    let surfaceDetected = false;
-    let currentCategory = 'all';
+    let selectedModel = PRODUCTS[0];
+    let placedGroups = [];
+    let currentSelection = null;
+    let surfaceReady = false;
 
-    const grid = document.getElementById('product-grid');
-    const arScroller = document.getElementById('ar-scroller');
+    // Loaders
+    const gltfLoader = new THREE.GLTFLoader();
 
-    function renderCatalog() {
-      grid.innerHTML = '';
-      const filtered = currentCategory === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.cat === currentCategory);
-      filtered.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'product-card' + (p === selectedProduct ? ' active' : '');
-        div.innerHTML = `
-          <div class="card-img-box" style="background-image:url('${p.img}')"></div>
-          <div class="card-info">
-            <div class="card-name">${p.name}</div>
-            <div class="card-price">${p.price}</div>
-          </div>
-        `;
-        div.onclick = () => {
-          selectedProduct = p;
-          document.querySelectorAll('.product-card').forEach(c => c.classList.remove('active'));
-          div.classList.add('active');
-        };
-        grid.appendChild(div);
-      });
-    }
-
-    function renderARScroller() {
-      arScroller.innerHTML = '';
-      PRODUCTS.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'scroll-item' + (p === selectedProduct ? ' active' : '');
-        div.textContent = p.emoji;
-        div.onclick = () => {
-          selectedProduct = p;
-          document.querySelectorAll('.scroll-item').forEach(c => c.classList.remove('active'));
-          div.classList.add('active');
-          if (navigator.vibrate) navigator.vibrate(10);
-        };
-        arScroller.appendChild(div);
-      });
-    }
-
-    document.querySelectorAll('.cat-tab').forEach(tab => {
-      tab.onclick = () => {
-        document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentCategory = tab.dataset.cat;
-        renderCatalog();
+    // Setup Catalog
+    const catalog = document.getElementById('catalog-grid');
+    PRODUCTS.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'product-card' + (p === selectedModel ? ' active' : '');
+      card.innerHTML = `<div class="card-img" style="background-image:url('${p.img}')"></div><div class="card-name">${p.name}</div><div class="card-price">${p.price}</div>`;
+      card.onclick = () => {
+        document.querySelectorAll('.product-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        selectedModel = p;
       };
+      catalog.appendChild(card);
     });
 
-    renderCatalog();
-
-    // Three.js
+    // Three.js Core
     const canvas = document.getElementById('three-canvas');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
-    const gltfLoader = new THREE.GLTFLoader();
+    
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(5, 5, 5);
+    scene.add(pointLight);
 
-    scene.add(new THREE.AmbientLight(0xfff5e0, 1.0));
-    const dl = new THREE.DirectionalLight(0xfff5e0, 1.2);
-    dl.position.set(2, 5, 3);
-    dl.castShadow = true;
-    scene.add(dl);
-
-    const hitPlane = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshBasicMaterial({visible:false}));
-    hitPlane.rotation.x = -Math.PI/2;
-    scene.add(hitPlane);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshBasicMaterial({visible:false}));
+    floor.rotation.x = -Math.PI/2;
+    scene.add(floor);
 
     const raycaster = new THREE.Raycaster();
-    function getHit(x, y) {
+    function getFloorHit(x, y) {
       const r = canvas.getBoundingClientRect();
       const vx = ((x - r.left) / r.width) * 2 - 1;
       const vy = -((y - r.top) / r.height) * 2 + 1;
       raycaster.setFromCamera(new THREE.Vector2(vx, vy), camera);
-      const hits = raycaster.intersectObject(hitPlane);
+      const hits = raycaster.intersectObject(floor);
       return hits.length ? hits[0].point : null;
     }
 
-    function placeObj(x, y) {
-      const pos = getHit(x, y);
+    function placeFurniture(x, y) {
+      const pos = getFloorHit(x, y);
       if (!pos) return;
 
-      showToast('⚡ LOADING Model...');
-      gltfLoader.load(selectedProduct.model, (gltf) => {
+      showToast('⚡ Streaming 3D Model...');
+      
+      gltfLoader.load(selectedModel.model, (gltf) => {
         const obj = gltf.scene;
-        obj.position.copy(pos);
         
-        // Model auto-centering and scaling
-        const bbox = new THREE.Box3().setFromObject(obj);
-        const center = bbox.getCenter(new THREE.Vector3());
+        // Normalize size and position
+        const box = new THREE.Box3().setFromObject(obj);
+        const center = box.getCenter(new THREE.Vector3());
         obj.position.sub(center);
-        obj.position.y = 0; // lock to floor
+        obj.position.y = 0; // Lock to floor
         obj.position.add(pos);
 
-        const size = bbox.getSize(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
         const max = Math.max(size.x, size.y, size.z);
-        if (max > 10) obj.scale.setScalar(0.01);
-        if (max < 0.1) obj.scale.setScalar(10);
+        if (max > 10) obj.scale.setScalar(0.01); // Handle CM models
+        if (max < 0.1) obj.scale.setScalar(10); // Handle tiny models
 
-        obj.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
-        
         scene.add(obj);
-        placedObjects.push(obj);
-        selectedObj = obj;
-        updatePanel();
-        showToast('✓ Placed Successfully');
-        if (navigator.vibrate) navigator.vibrate(15);
-      }, undefined, () => {
-        showToast('⚠ Load Error');
+        placedGroups.push(obj);
+        currentSelection = obj;
+        
+        updateUIPanel();
+        showToast('✓ Placed: ' + selectedModel.name);
+        if (navigator.vibrate) navigator.vibrate(20);
+      }, undefined, (err) => {
+        console.error(err);
+        showToast('⚠ Failed to load model');
       });
     }
 
     function showToast(m) {
-      const t = document.getElementById('toast');
-      t.textContent = m;
-      t.classList.add('show');
-      clearTimeout(t._timer);
-      t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+      const t = document.getElementById('toast-msg');
+      t.textContent = m; t.classList.add('show');
+      clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 2500);
     }
 
-    function updatePanel() {
-      const p = document.getElementById('ar-panel');
+    function updateUIPanel() {
+      const p = document.getElementById('ui-panel');
       p.classList.add('active');
-      document.getElementById('panel-name').textContent = selectedProduct.name;
-      document.getElementById('panel-price').textContent = selectedProduct.price;
+      document.getElementById('p-name').textContent = selectedModel.name;
+      document.getElementById('p-price').textContent = selectedModel.price;
     }
 
-    document.getElementById('btn-rotate').onclick = () => {
-      if (selectedObj) {
-        selectedObj.rotation.y += Math.PI/4;
+    // AR Interactions
+    document.getElementById('rotate-obj').onclick = () => {
+      if (currentSelection) {
+        currentSelection.rotation.y += Math.PI/4;
         if (navigator.vibrate) navigator.vibrate(10);
       }
     };
-    document.getElementById('btn-remove').onclick = () => {
-      if (placedObjects.length) {
-        const o = placedObjects.pop();
+    document.getElementById('remove-obj').onclick = () => {
+      if (placedGroups.length) {
+        const o = placedGroups.pop();
         scene.remove(o);
-        selectedObj = placedObjects[placedObjects.length-1] || null;
-        if (!selectedObj) document.getElementById('ar-panel').classList.remove('active');
-        showToast('🗑 Removed Object');
+        currentSelection = placedGroups[placedGroups.length-1] || null;
+        if (!currentSelection) document.getElementById('ui-panel').classList.remove('active');
+        showToast('🗑 Object Removed');
       }
     };
 
-    document.getElementById('ar-launch-btn').onclick = async () => {
+    // Launch Logic
+    document.getElementById('launch-btn').onclick = async () => {
       document.getElementById('landing').classList.add('hidden');
       document.getElementById('ar-screen').classList.add('active');
-      renderARScroller();
+      
+      // Load Swiper
+      const swiper = document.getElementById('ar-switcher');
+      swiper.innerHTML = '';
+      PRODUCTS.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'switcher-item' + (p === selectedModel ? ' active' : '');
+        item.textContent = p.icon;
+        item.onclick = () => {
+          selectedModel = p;
+          document.querySelectorAll('.switcher-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          if (navigator.vibrate) navigator.vibrate(10);
+        };
+        swiper.appendChild(item);
+      });
+
       onResize();
       
       try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment', frameRate: { ideal: 60 } } });
-        const v = document.createElement('video');
-        v.srcObject = s;
-        v.autoplay = v.muted = v.playsInline = true;
-        v.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; object-fit:cover;';
-        document.getElementById('fallback-camera').appendChild(v);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' } });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = video.muted = video.playsInline = true;
+        video.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; object-fit:cover;';
+        document.getElementById('camera-overlay').appendChild(video);
       } catch(e) {}
 
       setTimeout(() => {
-        document.getElementById('ar-status').classList.add('hidden');
-        document.getElementById('reticle').classList.add('visible');
-        surfaceDetected = true;
+        document.getElementById('scan-status').classList.add('hidden');
+        document.getElementById('reticle-ui').classList.add('visible');
+        surfaceReady = true;
+        showToast('🟢 Room Ready');
       }, 2500);
     };
 
-    document.getElementById('btn-back').onclick = () => {
+    document.getElementById('back-btn').onclick = () => {
       document.getElementById('landing').classList.remove('hidden');
       document.getElementById('ar-screen').classList.remove('active');
-      placedObjects.forEach(o => scene.remove(o));
-      placedObjects = [];
-      surfaceDetected = false;
-      const videos = document.querySelectorAll('#fallback-camera video');
+      placedGroups.forEach(o => scene.remove(o));
+      placedGroups = [];
+      surfaceReady = false;
+      const videos = document.querySelectorAll('#camera-overlay video');
       videos.forEach(v => { if (v.srcObject) v.srcObject.getTracks().forEach(t => t.stop()); v.remove(); });
     };
 
-    canvas.addEventListener('click', e => { if (surfaceDetected) placeObj(e.clientX, e.clientY); });
+    canvas.addEventListener('click', e => { if (surfaceReady) placeFurniture(e.clientX, e.clientY); });
 
     function onResize() {
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -576,13 +454,14 @@
     }
     animate();
 
-    (async () => {
-      const n = document.getElementById('webxr-note');
+    const checkXR = async () => {
+      const status = document.getElementById('webxr-status');
       if (navigator.xr) {
         const ok = await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false);
-        n.textContent = ok ? '✓ WebXR Immersive AR mode ready' : '⚠ Limited WebXR, running in preview mode';
-      } else { n.textContent = '⚠ Device simulation active (WebXR not detected)'; }
-    })();
+        status.textContent = ok ? '✓ Immersive WebXR Ready' : '⚠ Limited Browser Support (Preview Mode)';
+      } else { status.textContent = '⚠ Using Simulator (No WebXR detected)'; }
+    };
+    checkXR();
   </script>
 </body>
 </html>
