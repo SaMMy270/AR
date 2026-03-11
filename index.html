@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Studio | Premium Interior Design</title>
+  <title>AR Universe | Premium Stager</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap');
 
@@ -32,7 +32,6 @@
       touch-action: none;
     }
 
-    /* ── LANDING SCREEN ── */
     #landing {
       position: fixed; inset: 0; z-index: 100;
       display: flex; flex-direction: column;
@@ -44,7 +43,7 @@
     .hero-section {
       position: relative; padding: 100px 24px 60px;
       display: flex; flex-direction: column; align-items: center;
-      text-align: center; min-height: 80vh; justify-content: flex-end;
+      text-align: center; min-height: 85vh; justify-content: flex-end;
     }
 
     .hero-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
@@ -59,7 +58,6 @@
       position: absolute; inset: 0;
       background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
     }
-    @keyframes slowZoom { from { transform: scale(1); } to { transform: scale(1.2); } }
 
     .brand-tag {
       font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase;
@@ -73,48 +71,17 @@
       font-family: 'Playfair Display', serif;
       font-size: clamp(2.5rem, 8vw, 5rem);
       font-weight: 400; line-height: 1.1;
-      margin-bottom: 24px; letter-spacing: -0.02em;
+      margin-bottom: 24px;
     }
     .landing h1 em { color: var(--accent); font-style: italic; }
 
-    .landing-sub {
-      font-size: 17px; color: var(--muted); max-width: 400px;
-      line-height: 1.6; margin-bottom: 40px; font-weight: 300;
-    }
-
-    /* Catalog Grid */
-    .catalog-section { background: var(--bg); padding: 0 24px 80px; }
-    .product-grid {
-      display: grid; 
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 16px; max-width: 1200px; margin: 0 auto;
-    }
-
-    .product-card {
-      background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
-      border-radius: 24px; padding: 12px; cursor: pointer;
-      transition: all 0.4s var(--transition);
-    }
-    .product-card.active { border-color: var(--accent); background: rgba(227, 196, 141, 0.05); }
-    .product-card:hover { transform: translateY(-5px); border-color: var(--accent); }
-
-    .card-img {
-      width: 100%; aspect-ratio: 1; border-radius: 16px;
-      background-size: cover; background-position: center;
-      margin-bottom: 12px; filter: brightness(0.8);
-    }
-    .card-name { font-size: 14px; font-weight: 600; color: var(--text); }
-    .card-price { font-size: 15px; color: var(--accent); font-weight: 700; }
-
-    .launch-container { padding: 40px 24px; display: flex; flex-direction: column; align-items: center; }
-    .ar-launch-btn {
-      padding: 20px 48px; border-radius: 100px;
+    .launch-btn {
+      padding: 22px 52px; border-radius: 100px;
       background: var(--accent); border: none;
       color: #000; font-size: 17px; font-weight: 800;
       cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em;
-      box-shadow: 0 15px 35px var(--accent-glow); transition: 0.4s;
+      box-shadow: 0 15px 35px var(--accent-glow);
     }
-    .ar-launch-btn:hover { transform: scale(1.05); box-shadow: 0 20px 45px var(--accent-glow); }
 
     /* ── AR SCREEN ── */
     #ar-screen {
@@ -125,10 +92,8 @@
     #three-canvas { position: absolute; inset: 0; z-index: 2; }
     #camera-overlay { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: #000; }
 
-    .ar-ui { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
-    .ar-ui > * { pointer-events: auto; }
-
     .top-bar {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
       padding: 50px 24px 20px;
       display: flex; align-items: center; justify-content: space-between;
       background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
@@ -137,14 +102,14 @@
       width: 48px; height: 48px; border-radius: 50%;
       background: var(--glass); border: 1px solid var(--glass-border);
       backdrop-filter: var(--blur); display: flex; align-items: center; justify-content: center;
-      color: #fff; cursor: pointer; font-size: 20px;
+      color: #fff; cursor: pointer;
     }
 
     .ar-status {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: var(--glass); border: 1px solid var(--glass-border);
       backdrop-filter: var(--blur); border-radius: 30px;
-      padding: 30px; text-align: center; width: calc(100% - 48px); max-width: 320px;
+      padding: 30px; text-align: center; width: calc(100% - 48px); max-width: 320px; z-index: 20;
     }
     .ar-status.hidden { display: none; }
 
@@ -157,19 +122,18 @@
 
     .reticle {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 80px; height: 80px; pointer-events: none; opacity: 0; transition: 0.4s;
+      width: 80px; height: 80px; pointer-events: none; opacity: 0; transition: 0.4s; z-index: 5;
     }
     .reticle.visible { opacity: 1; }
 
     .bottom-panel {
-      position: absolute; bottom: 0; left: 0; right: 0;
+      position: absolute; bottom: 0; left: 0; right: 0; z-index: 30;
       background: var(--glass); border-top: 1px solid var(--glass-border);
       backdrop-filter: var(--blur); border-radius: 32px 32px 0 0;
       padding: 24px 28px 48px; transform: translateY(100%); transition: 0.6s var(--transition);
     }
     .bottom-panel.active { transform: translateY(0); }
 
-    .panel-actions { display: flex; gap: 12px; margin-top: 24px; }
     .action-btn {
       flex: 1; padding: 18px; border-radius: 30px;
       border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05);
@@ -177,18 +141,18 @@
     }
     .action-btn.primary { background: var(--accent); color: #000; border: none; }
 
-    .product-switcher {
-      position: absolute; bottom: 130px; left: 0; right: 0;
+    .product-scroller {
+      position: absolute; bottom: 130px; left: 0; right: 0; z-index: 10;
       display: flex; gap: 12px; padding: 0 24px; overflow-x: auto;
       scrollbar-width: none;
     }
-    .switcher-item {
-      width: 54px; height: 54px; border-radius: 16px;
+    .scroll-item {
+      width: 56px; height: 56px; border-radius: 18px;
       background: var(--glass); border: 1px solid var(--glass-border);
       backdrop-filter: var(--blur); display: flex; align-items: center; justify-content: center;
       font-size: 24px; cursor: pointer; transition: 0.3s;
     }
-    .switcher-item.active { border-color: var(--accent); transform: scale(1.1); }
+    .scroll-item.active { border-color: var(--accent); transform: scale(1.1); }
 
     .toast {
       position: fixed; top: 110px; left: 50%; transform: translateX(-50%);
@@ -200,7 +164,6 @@
     .toast.show { opacity: 1; top: 125px; }
 
     @media (min-width: 768px) {
-      .product-grid { grid-template-columns: repeat(4, 1fr); gap: 24px; }
       .bottom-panel { left: 50%; width: 500px; transform: translateX(-50%) translateY(100%); border-radius: 32px; margin-bottom: 24px; }
       .bottom-panel.active { transform: translateX(-50%) translateY(0); }
     }
@@ -211,16 +174,9 @@
   <div id="landing">
     <div class="hero-section">
       <div class="hero-bg"><div class="hero-image"></div><div class="hero-gradient"></div></div>
-      <div class="brand-tag">✦ AR Design Studio</div>
-      <h1>Live in your <em>dream</em><br>interior, today.</h1>
-      <p class="landing-sub">Staged with high-fidelity AR models and real-world multi-placement logic.</p>
-      <div class="launch-container">
-        <button class="ar-launch-btn" id="launch-btn">Enter AR Studio</button>
-        <p id="webxr-status" style="font-size:12px; margin-top:15px; color:var(--muted)"></p>
-      </div>
-    </div>
-    <div class="catalog-section">
-      <div class="product-grid" id="catalog-grid"></div>
+      <div class="brand-tag">✦ AR Universe</div>
+      <h1>Model-Perfect<br><em>Design</em>.</h1>
+      <button class="launch-btn" id="launch-btn">Launch Experience</button>
     </div>
   </div>
 
@@ -228,52 +184,47 @@
     <div id="camera-overlay"></div>
     <canvas id="three-canvas"></canvas>
     
-    <div class="ar-ui">
-      <div class="top-bar">
-        <button class="btn-icon" id="back-btn">✕</button>
-        <span style="font-size:12px; font-weight:700; letter-spacing:3px">AR STUDIO</span>
-        <button class="btn-icon">⚡</button>
-      </div>
+    <div class="top-bar">
+      <button class="btn-icon" id="back-btn">✕</button>
+      <span style="font-size:12px; font-weight:700; letter-spacing:4px">AR STUDIO</span>
+      <button class="btn-icon">⚡</button>
+    </div>
 
-      <div class="ar-status" id="scan-status">
-        <div class="scan-ring"></div>
-        <div style="font-size:18px; font-weight:700">Analyzing Room</div>
-        <div style="font-size:13px; color:var(--muted); margin-top:5px">Move your phone to detect the floor</div>
-      </div>
+    <div class="ar-status" id="scan-status">
+      <div class="scan-ring"></div>
+      <div style="font-weight:700">Syncing Environment</div>
+    </div>
 
-      <div class="reticle" id="reticle-ui">
-        <svg viewBox="0 0 64 64" fill="none">
-          <circle cx="32" cy="32" r="30" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4 4" />
-          <path d="M32 10V4M32 60V54M10 32H4M60 32H54" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="32" cy="32" r="4" fill="var(--accent)" />
-        </svg>
-      </div>
+    <div class="reticle" id="reticle-ui">
+      <svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="30" stroke="var(--accent)" stroke-width="0.5" stroke-dasharray="3 3"/><circle cx="32" cy="32" r="3" fill="var(--accent)"/></svg>
+    </div>
 
-      <div class="product-switcher" id="ar-switcher"></div>
+    <div class="product-scroller" id="scroller"></div>
 
-      <div class="bottom-panel" id="ui-panel">
-        <div id="p-name" style="font-family:'Playfair Display',serif; font-size:26px">Sofa</div>
-        <div id="p-price" style="font-size:20px; color:var(--accent); font-weight:700">₹45,000</div>
-        <div class="panel-actions">
-          <button class="action-btn" id="rotate-obj">↺ Rotate</button>
-          <button class="action-btn" id="remove-obj" style="color:var(--danger)">🗑 Remove</button>
-          <button class="action-btn primary">Add to Cart</button>
-        </div>
+    <div class="bottom-panel" id="ui-panel">
+      <div id="p-name" style="font-family:'Playfair Display',serif; font-size:26px">Sofa</div>
+      <div id="p-price" style="font-size:18px; color:var(--accent); font-weight:700">₹45,000</div>
+      <div style="display:flex; gap:12px; margin-top:20px">
+        <button class="action-btn" id="rotate-obj">Rotate</button>
+        <button class="action-btn" id="remove-obj">Remove</button>
+        <button class="action-btn primary">Checkout</button>
       </div>
     </div>
   </div>
 
   <div class="toast" id="toast-msg"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- Reliable CDN imports for Three.js and Loaders -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/loaders/DRACOLoader.js"></script>
 
   <script>
     const PRODUCTS = [
-      { id:'sofa', name:'Velvet Elite Sofa', price:'₹45,000', model:'./models/sofa-v1.glb', img:'./images/sofa.jpg', icon:'🛋️' },
-      { id:'table', name:'Architect Table', price:'₹18,000', model:'./models/study_table-v2.glb', img:'./images/table1.webp', icon:'🍽️' },
-      { id:'bed', name:'Majestic Bed', price:'₹32,000', model:'./models/single_bed-v1.glb', img:'./images/bed1.jpg', icon:'🛏️' },
-      { id:'chair', name:'Carbon Gaming Chair', price:'₹22,000', model:'./models/gaming_chair-v1.glb', img:'./images/gamingchair.webp', icon:'🎮' }
+      { id:'sofa', name:'Velvet Elite Sofa', price:'₹45,000', model:'models/sofa-v1.glb', icon:'🛋️' },
+      { id:'table', name:'Architect Table', price:'₹18,000', model:'models/study_table-v2.glb', icon:'🍽️' },
+      { id:'bed', name:'Majestic Bed', price:'₹32,000', model:'models/single_bed-v1.glb', icon:'🛏️' },
+      { id:'chair', name:'Gaming Chair', price:'₹22,000', model:'models/gaming_chair-v1.glb', icon:'🎮' }
     ];
 
     let selectedModel = PRODUCTS[0];
@@ -281,42 +232,30 @@
     let currentSelection = null;
     let surfaceReady = false;
 
-    // Loaders
+    // Loaders initialization
     const gltfLoader = new THREE.GLTFLoader();
+    const dracoLoader = new THREE.DRACOLoader();
+    // Using a reliable Google CDN for the Draco decoder binaries
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    gltfLoader.setDRACOLoader(dracoLoader);
 
-    // Setup Catalog
-    const catalog = document.getElementById('catalog-grid');
-    PRODUCTS.forEach(p => {
-      const card = document.createElement('div');
-      card.className = 'product-card' + (p === selectedModel ? ' active' : '');
-      card.innerHTML = `<div class="card-img" style="background-image:url('${p.img}')"></div><div class="card-name">${p.name}</div><div class="card-price">${p.price}</div>`;
-      card.onclick = () => {
-        document.querySelectorAll('.product-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        selectedModel = p;
-      };
-      catalog.appendChild(card);
-    });
-
-    // Three.js Core
     const canvas = document.getElementById('three-canvas');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
-    
-    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-    const pointLight = new THREE.PointLight(0xffffff, 1);
-    pointLight.position.set(5, 5, 5);
-    scene.add(pointLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 1));
+    const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+    dl.position.set(2, 5, 2);
+    scene.add(dl);
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshBasicMaterial({visible:false}));
     floor.rotation.x = -Math.PI/2;
     scene.add(floor);
 
     const raycaster = new THREE.Raycaster();
-    function getFloorHit(x, y) {
+    function getHit(x, y) {
       const r = canvas.getBoundingClientRect();
       const vx = ((x - r.left) / r.width) * 2 - 1;
       const vy = -((y - r.top) / r.height) * 2 + 1;
@@ -325,59 +264,86 @@
       return hits.length ? hits[0].point : null;
     }
 
-    function placeFurniture(x, y) {
-      const pos = getFloorHit(x, y);
+    function placeObj(x, y) {
+      const pos = getHit(x, y);
       if (!pos) return;
-
-      showToast('⚡ Streaming 3D Model...');
       
-      gltfLoader.load(selectedModel.model, (gltf) => {
+      const targetUrl = selectedModel.model;
+      showToast('⚡ LOADING...');
+      
+      gltfLoader.load(targetUrl, (gltf) => {
         const obj = gltf.scene;
         
-        // Normalize size and position
+        // Accurate floor-lock logic
         const box = new THREE.Box3().setFromObject(obj);
         const center = box.getCenter(new THREE.Vector3());
-        obj.position.sub(center);
-        obj.position.y = 0; // Lock to floor
-        obj.position.add(pos);
-
         const size = box.getSize(new THREE.Vector3());
+        
+        // Center horizontally, lock bottom to Y=0
+        obj.position.x += (pos.x - center.x);
+        obj.position.y += (0 - box.min.y); 
+        obj.position.z += (pos.z - center.z);
+        
+        // Intelligent auto-scaling
         const max = Math.max(size.x, size.y, size.z);
-        if (max > 10) obj.scale.setScalar(0.01); // Handle CM models
-        if (max < 0.1) obj.scale.setScalar(10); // Handle tiny models
+        if (max > 10) obj.scale.setScalar(0.01); 
+        else if (max < 0.1) obj.scale.setScalar(10);
 
         scene.add(obj);
         placedGroups.push(obj);
         currentSelection = obj;
-        
-        updateUIPanel();
-        showToast('✓ Placed: ' + selectedModel.name);
-        if (navigator.vibrate) navigator.vibrate(20);
+        updateUI();
+        showToast('✓ Placed Successfully');
       }, undefined, (err) => {
-        console.error(err);
-        showToast('⚠ Failed to load model');
+        console.error('Loader Error:', err);
+        showToast('⚠ Error loading ' + targetUrl.split('/').pop());
       });
     }
 
     function showToast(m) {
       const t = document.getElementById('toast-msg');
       t.textContent = m; t.classList.add('show');
-      clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), 3000);
     }
 
-    function updateUIPanel() {
-      const p = document.getElementById('ui-panel');
-      p.classList.add('active');
+    function updateUI() {
+      document.getElementById('ui-panel').classList.add('active');
       document.getElementById('p-name').textContent = selectedModel.name;
       document.getElementById('p-price').textContent = selectedModel.price;
     }
 
-    // AR Interactions
+    document.getElementById('launch-btn').onclick = async () => {
+      document.getElementById('landing').classList.add('hidden');
+      document.getElementById('ar-screen').classList.add('active');
+      const scroller = document.getElementById('scroller');
+      scroller.innerHTML = '';
+      PRODUCTS.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'scroll-item' + (p === selectedModel ? ' active' : '');
+        item.textContent = p.icon;
+        item.onclick = () => {
+          selectedModel = p;
+          document.querySelectorAll('.scroll-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        };
+        scroller.appendChild(item);
+      });
+      onResize();
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' } });
+        const v = document.createElement('video');
+        v.srcObject = s; v.autoplay = v.playsInline = true;
+        v.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; object-fit:cover;';
+        document.getElementById('camera-overlay').appendChild(v);
+      } catch(e) {}
+      setTimeout(() => { document.getElementById('scan-status').classList.add('hidden'); document.getElementById('reticle-ui').classList.add('visible'); surfaceReady = true; }, 2000);
+    };
+
+    document.getElementById('back-btn').onclick = () => location.reload();
+    
     document.getElementById('rotate-obj').onclick = () => {
-      if (currentSelection) {
-        currentSelection.rotation.y += Math.PI/4;
-        if (navigator.vibrate) navigator.vibrate(10);
-      }
+      if (currentSelection) { currentSelection.rotation.y += Math.PI/4; }
     };
     document.getElementById('remove-obj').onclick = () => {
       if (placedGroups.length) {
@@ -389,79 +355,11 @@
       }
     };
 
-    // Launch Logic
-    document.getElementById('launch-btn').onclick = async () => {
-      document.getElementById('landing').classList.add('hidden');
-      document.getElementById('ar-screen').classList.add('active');
-      
-      // Load Swiper
-      const swiper = document.getElementById('ar-switcher');
-      swiper.innerHTML = '';
-      PRODUCTS.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'switcher-item' + (p === selectedModel ? ' active' : '');
-        item.textContent = p.icon;
-        item.onclick = () => {
-          selectedModel = p;
-          document.querySelectorAll('.switcher-item').forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
-          if (navigator.vibrate) navigator.vibrate(10);
-        };
-        swiper.appendChild(item);
-      });
-
-      onResize();
-      
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' } });
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.autoplay = video.muted = video.playsInline = true;
-        video.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; object-fit:cover;';
-        document.getElementById('camera-overlay').appendChild(video);
-      } catch(e) {}
-
-      setTimeout(() => {
-        document.getElementById('scan-status').classList.add('hidden');
-        document.getElementById('reticle-ui').classList.add('visible');
-        surfaceReady = true;
-        showToast('🟢 Room Ready');
-      }, 2500);
-    };
-
-    document.getElementById('back-btn').onclick = () => {
-      document.getElementById('landing').classList.remove('hidden');
-      document.getElementById('ar-screen').classList.remove('active');
-      placedGroups.forEach(o => scene.remove(o));
-      placedGroups = [];
-      surfaceReady = false;
-      const videos = document.querySelectorAll('#camera-overlay video');
-      videos.forEach(v => { if (v.srcObject) v.srcObject.getTracks().forEach(t => t.stop()); v.remove(); });
-    };
-
-    canvas.addEventListener('click', e => { if (surfaceReady) placeFurniture(e.clientX, e.clientY); });
-
-    function onResize() {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-    }
+    canvas.addEventListener('click', e => { if (surfaceReady) placeObj(e.clientX, e.clientY); });
+    function onResize() { renderer.setSize(window.innerWidth, window.innerHeight); camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); }
     window.addEventListener('resize', onResize);
-
-    function animate() {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    }
+    function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
     animate();
-
-    const checkXR = async () => {
-      const status = document.getElementById('webxr-status');
-      if (navigator.xr) {
-        const ok = await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false);
-        status.textContent = ok ? '✓ Immersive WebXR Ready' : '⚠ Limited Browser Support (Preview Mode)';
-      } else { status.textContent = '⚠ Using Simulator (No WebXR detected)'; }
-    };
-    checkXR();
   </script>
 </body>
 </html>
