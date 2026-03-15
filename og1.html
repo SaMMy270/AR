@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Universe | Premium Stager</title>
+  <title>AR Universe | Pro Design Studio</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap');
 
@@ -12,12 +12,9 @@
 
     :root {
       --bg: #050807;
-      --surface: #0a120e;
       --glass: rgba(10, 18, 14, 0.9);
       --glass-border: rgba(227, 196, 141, 0.2);
       --accent: #e3c48d;
-      --accent-glow: rgba(227, 196, 141, 0.4);
-      --emerald: #1aa06d;
       --text: #f0f4f2;
       --muted: rgba(240, 244, 242, 0.5);
       --blur: blur(30px) saturate(1.8);
@@ -28,7 +25,6 @@
       width: 100%; height: 100%; overflow: hidden;
       background: var(--bg); color: var(--text);
       font-family: 'Outfit', sans-serif;
-      -webkit-font-smoothing: antialiased;
       touch-action: none;
     }
 
@@ -73,14 +69,12 @@
       font-weight: 400; line-height: 1.1;
       margin-bottom: 24px;
     }
-    .landing h1 em { color: var(--accent); font-style: italic; }
 
     .launch-btn {
       padding: 22px 52px; border-radius: 100px;
       background: var(--accent); border: none;
       color: #000; font-size: 17px; font-weight: 800;
       cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em;
-      box-shadow: 0 15px 35px var(--accent-glow);
     }
 
     /* ── AR SCREEN ── */
@@ -112,13 +106,6 @@
       padding: 30px; text-align: center; width: calc(100% - 48px); max-width: 320px; z-index: 20;
     }
     .ar-status.hidden { display: none; }
-
-    .scan-ring {
-      width: 60px; height: 60px; border: 3px solid rgba(227,196,141,0.1);
-      border-top-color: var(--accent); border-radius: 50%; margin: 0 auto 20px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
     .reticle {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -163,10 +150,8 @@
     }
     .toast.show { opacity: 1; top: 125px; }
 
-    @media (min-width: 768px) {
-      .bottom-panel { left: 50%; width: 500px; transform: translateX(-50%) translateY(100%); border-radius: 32px; margin-bottom: 24px; }
-      .bottom-panel.active { transform: translateX(-50%) translateY(0); }
-    }
+    @keyframes slowZoom { from { transform: scale(1); } to { transform: scale(1.2); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 
@@ -174,9 +159,9 @@
   <div id="landing">
     <div class="hero-section">
       <div class="hero-bg"><div class="hero-image"></div><div class="hero-gradient"></div></div>
-      <div class="brand-tag">✦ AR Universe</div>
-      <h1>Model-Perfect<br><em>Design</em>.</h1>
-      <button class="launch-btn" id="launch-btn">Launch Experience</button>
+      <div class="brand-tag">✦ AR Design Studio</div>
+      <h1>Infinite Inner<br><em>Visions</em>.</h1>
+      <button class="launch-btn" id="launch-btn">Start Experience</button>
     </div>
   </div>
 
@@ -186,14 +171,11 @@
     
     <div class="top-bar">
       <button class="btn-icon" id="back-btn">✕</button>
-      <span style="font-size:12px; font-weight:700; letter-spacing:4px">AR STUDIO</span>
+      <span style="font-size:12px; font-weight:700; letter-spacing:4px">PRO STUDIO</span>
       <button class="btn-icon">⚡</button>
     </div>
 
-    <div class="ar-status" id="scan-status">
-      <div class="scan-ring"></div>
-      <div style="font-weight:700">Syncing Environment</div>
-    </div>
+    <div class="ar-status" id="scan-status"><div style="width:50px; height:50px; border:3px solid var(--accent); border-top-color:transparent; border-radius:50%; margin:0 auto 15px; animation:spin 1s linear infinite"></div><div style="font-weight:700">Syncing...</div></div>
 
     <div class="reticle" id="reticle-ui">
       <svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="30" stroke="var(--accent)" stroke-width="0.5" stroke-dasharray="3 3"/><circle cx="32" cy="32" r="3" fill="var(--accent)"/></svg>
@@ -207,14 +189,13 @@
       <div style="display:flex; gap:12px; margin-top:20px">
         <button class="action-btn" id="rotate-obj">Rotate</button>
         <button class="action-btn" id="remove-obj">Remove</button>
-        <button class="action-btn primary">Checkout</button>
+        <button class="action-btn primary">Purchase</button>
       </div>
     </div>
   </div>
 
   <div class="toast" id="toast-msg"></div>
 
-  <!-- Reliable CDN imports for Three.js and Loaders -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/loaders/DRACOLoader.js"></script>
@@ -232,10 +213,8 @@
     let currentSelection = null;
     let surfaceReady = false;
 
-    // Loaders initialization
     const gltfLoader = new THREE.GLTFLoader();
     const dracoLoader = new THREE.DRACOLoader();
-    // Using a reliable Google CDN for the Draco decoder binaries
     dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     gltfLoader.setDRACOLoader(dracoLoader);
 
@@ -246,9 +225,6 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
     scene.add(new THREE.AmbientLight(0xffffff, 1));
-    const dl = new THREE.DirectionalLight(0xffffff, 0.8);
-    dl.position.set(2, 5, 2);
-    scene.add(dl);
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshBasicMaterial({visible:false}));
     floor.rotation.x = -Math.PI/2;
@@ -267,50 +243,35 @@
     function placeObj(x, y) {
       const pos = getHit(x, y);
       if (!pos) return;
-      
-      const targetUrl = selectedModel.model;
-      showToast('⚡ LOADING...');
-      
-      gltfLoader.load(targetUrl, (gltf) => {
+      showToast('⚡ LOADING Model...');
+      gltfLoader.load(selectedModel.model, (gltf) => {
         const obj = gltf.scene;
-        
-        // Accurate floor-lock logic
         const box = new THREE.Box3().setFromObject(obj);
         const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
         
-        // Center horizontally, lock bottom to Y=0
         obj.position.x += (pos.x - center.x);
         obj.position.y += (0 - box.min.y); 
         obj.position.z += (pos.z - center.z);
         
-        // Intelligent auto-scaling
+        const size = box.getSize(new THREE.Vector3());
         const max = Math.max(size.x, size.y, size.z);
-        if (max > 10) obj.scale.setScalar(0.01); 
+        if (max > 10) obj.scale.setScalar(0.01);
         else if (max < 0.1) obj.scale.setScalar(10);
 
         scene.add(obj);
         placedGroups.push(obj);
         currentSelection = obj;
-        updateUI();
+        document.getElementById('ui-panel').classList.add('active');
+        document.getElementById('p-name').textContent = selectedModel.name;
+        document.getElementById('p-price').textContent = selectedModel.price;
         showToast('✓ Placed Successfully');
-      }, undefined, (err) => {
-        console.error('Loader Error:', err);
-        showToast('⚠ Error loading ' + targetUrl.split('/').pop());
-      });
+      }, undefined, () => showToast('⚠ Error Loading Model'));
     }
 
     function showToast(m) {
       const t = document.getElementById('toast-msg');
       t.textContent = m; t.classList.add('show');
-      clearTimeout(t._timer);
-      t._timer = setTimeout(() => t.classList.remove('show'), 3000);
-    }
-
-    function updateUI() {
-      document.getElementById('ui-panel').classList.add('active');
-      document.getElementById('p-name').textContent = selectedModel.name;
-      document.getElementById('p-price').textContent = selectedModel.price;
+      setTimeout(() => t.classList.remove('show'), 3000);
     }
 
     document.getElementById('launch-btn').onclick = async () => {
@@ -341,17 +302,14 @@
     };
 
     document.getElementById('back-btn').onclick = () => location.reload();
-    
-    document.getElementById('rotate-obj').onclick = () => {
-      if (currentSelection) { currentSelection.rotation.y += Math.PI/4; }
-    };
+    document.getElementById('rotate-obj').onclick = () => { if (currentSelection) currentSelection.rotation.y += Math.PI/4; };
     document.getElementById('remove-obj').onclick = () => {
       if (placedGroups.length) {
         const o = placedGroups.pop();
         scene.remove(o);
         currentSelection = placedGroups[placedGroups.length-1] || null;
         if (!currentSelection) document.getElementById('ui-panel').classList.remove('active');
-        showToast('🗑 Object Removed');
+        showToast('🗑 Removed');
       }
     };
 
