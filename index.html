@@ -1,365 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Universe | Premium Stager</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Floor-Locked Stager</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: sans-serif; 
+        }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        model-viewer {
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
 
-    :root {
-      --bg: #050807;
-      --surface: #0a120e;
-      --glass: rgba(10, 18, 14, 0.9);
-      --glass-border: rgba(227, 196, 141, 0.2);
-      --accent: #e3c48d;
-      --accent-glow: rgba(227, 196, 141, 0.4);
-      --emerald: #1aa06d;
-      --text: #f0f4f2;
-      --muted: rgba(240, 244, 242, 0.5);
-      --blur: blur(30px) saturate(1.8);
-      --transition: cubic-bezier(0.23, 1, 0.32, 1);
-    }
+        /* Slider UI */
+        .slider {
+            position: fixed;
+            bottom: 140px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            z-index: 1000;
+        }
 
-    html, body {
-      width: 100%; height: 100%; overflow: hidden;
-      background: var(--bg); color: var(--text);
-      font-family: 'Outfit', sans-serif;
-      -webkit-font-smoothing: antialiased;
-      touch-action: none;
-    }
+        .slide {
+            width: 70px; 
+            height: 70px;
+            background: white; 
+            border-radius: 12px;
+            border: 3px solid white; 
+            cursor: pointer;
+            background-size: cover; 
+            background-position: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
 
-    #landing {
-      position: fixed; inset: 0; z-index: 100;
-      display: flex; flex-direction: column;
-      background: var(--bg); transition: opacity 0.8s var(--transition);
-      overflow-y: auto;
-    }
-    #landing.hidden { opacity: 0; pointer-events: none; }
+        /* Launch Button */
+        #ar-button {
+            background-color: #4285f4;
+            color: white;
+            border-radius: 30px;
+            border: none;
+            position: absolute;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 35px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+        }
 
-    .hero-section {
-      position: relative; padding: 100px 24px 60px;
-      display: flex; flex-direction: column; align-items: center;
-      text-align: center; min-height: 85vh; justify-content: flex-end;
-    }
+        /* NEW: Rescan Button - only visible during AR */
+        #rescan-button {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 2001;
+            cursor: pointer;
+        }
 
-    .hero-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
-    .hero-image {
-      position: absolute; inset: 0;
-      background-image: url('ar_furniture_hero_1773244284518.png');
-      background-size: cover; background-position: center;
-      filter: brightness(0.4) contrast(1.1);
-      transform: scale(1.1); animation: slowZoom 40s linear infinite alternate;
-    }
-    .hero-gradient {
-      position: absolute; inset: 0;
-      background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
-    }
+        /* Calibration Instructions */
+        #instructions {
+            display: none;
+            position: fixed;
+            top: 20%;
+            width: 100%;
+            text-align: center;
+            z-index: 2000;
+        }
 
-    .brand-tag {
-      font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase;
-      color: var(--accent); font-weight: 700; margin-bottom: 24px;
-      padding: 10px 24px; border-radius: 40px;
-      border: 1px solid var(--glass-border);
-      background: var(--glass); backdrop-filter: var(--blur);
-    }
-
-    .landing h1 {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(2.5rem, 8vw, 5rem);
-      font-weight: 400; line-height: 1.1;
-      margin-bottom: 24px;
-    }
-    .landing h1 em { color: var(--accent); font-style: italic; }
-
-    .launch-btn {
-      padding: 22px 52px; border-radius: 100px;
-      background: var(--accent); border: none;
-      color: #000; font-size: 17px; font-weight: 800;
-      cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em;
-      box-shadow: 0 15px 35px var(--accent-glow);
-    }
-
-    /* ── AR SCREEN ── */
-    #ar-screen {
-      position: fixed; inset: 0; z-index: 50; display: none;
-    }
-    #ar-screen.active { display: block; }
-
-    #three-canvas { position: absolute; inset: 0; z-index: 2; }
-    #camera-overlay { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: #000; }
-
-    .top-bar {
-      position: absolute; top: 0; left: 0; right: 0; z-index: 10;
-      padding: 50px 24px 20px;
-      display: flex; align-items: center; justify-content: space-between;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-    }
-    .btn-icon {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: var(--glass); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); display: flex; align-items: center; justify-content: center;
-      color: #fff; cursor: pointer;
-    }
-
-    .ar-status {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: var(--glass); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); border-radius: 30px;
-      padding: 30px; text-align: center; width: calc(100% - 48px); max-width: 320px; z-index: 20;
-    }
-    .ar-status.hidden { display: none; }
-
-    .scan-ring {
-      width: 60px; height: 60px; border: 3px solid rgba(227,196,141,0.1);
-      border-top-color: var(--accent); border-radius: 50%; margin: 0 auto 20px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .reticle {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 80px; height: 80px; pointer-events: none; opacity: 0; transition: 0.4s; z-index: 5;
-    }
-    .reticle.visible { opacity: 1; }
-
-    .bottom-panel {
-      position: absolute; bottom: 0; left: 0; right: 0; z-index: 30;
-      background: var(--glass); border-top: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); border-radius: 32px 32px 0 0;
-      padding: 24px 28px 48px; transform: translateY(100%); transition: 0.6s var(--transition);
-    }
-    .bottom-panel.active { transform: translateY(0); }
-
-    .action-btn {
-      flex: 1; padding: 18px; border-radius: 30px;
-      border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05);
-      color: #fff; font-weight: 700; cursor: pointer;
-    }
-    .action-btn.primary { background: var(--accent); color: #000; border: none; }
-
-    .product-scroller {
-      position: absolute; bottom: 130px; left: 0; right: 0; z-index: 10;
-      display: flex; gap: 12px; padding: 0 24px; overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .scroll-item {
-      width: 56px; height: 56px; border-radius: 18px;
-      background: var(--glass); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); display: flex; align-items: center; justify-content: center;
-      font-size: 24px; cursor: pointer; transition: 0.3s;
-    }
-    .scroll-item.active { border-color: var(--accent); transform: scale(1.1); }
-
-    .toast {
-      position: fixed; top: 110px; left: 50%; transform: translateX(-50%);
-      background: var(--glass); border: 1px solid var(--glass-border);
-      backdrop-filter: var(--blur); padding: 12px 24px; border-radius: 20px;
-      font-size: 14px; font-weight: 600; opacity: 0; transition: 0.4s;
-      z-index: 200; pointer-events: none;
-    }
-    .toast.show { opacity: 1; top: 125px; }
-
-    @media (min-width: 768px) {
-      .bottom-panel { left: 50%; width: 500px; transform: translateX(-50%) translateY(100%); border-radius: 32px; margin-bottom: 24px; }
-      .bottom-panel.active { transform: translateX(-50%) translateY(0); }
-    }
-  </style>
+        #instructions p {
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            display: inline-block;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 14px;
+        }
+    </style>
 </head>
-
 <body>
-  <div id="landing">
-    <div class="hero-section">
-      <div class="hero-bg"><div class="hero-image"></div><div class="hero-gradient"></div></div>
-      <div class="brand-tag">✦ AR Universe</div>
-      <h1>Model-Perfect<br><em>Design</em>.</h1>
-      <button class="launch-btn" id="launch-btn">Launch Experience</button>
-    </div>
-  </div>
 
-  <div id="ar-screen">
-    <div id="camera-overlay"></div>
-    <canvas id="three-canvas"></canvas>
-    
-    <div class="top-bar">
-      <button class="btn-icon" id="back-btn">✕</button>
-      <span style="font-size:12px; font-weight:700; letter-spacing:4px">AR STUDIO</span>
-      <button class="btn-icon">⚡</button>
-    </div>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 
-    <div class="ar-status" id="scan-status">
-      <div class="scan-ring"></div>
-      <div style="font-weight:700">Syncing Environment</div>
-    </div>
+    <model-viewer id="room-stager" 
+        src="models/sofa-v1.glb" 
+        ar 
+        ar-modes="webxr" 
+        ar-placement="floor" 
+        ar-scale="fixed" 
+        ar-hit-test 
+        initial-placement="floor" 
+        interpolation-decay="200" 
+        camera-controls 
+        shadow-intensity="2" 
+        shadow-softness="0" 
+        environment-image="neutral">
 
-    <div class="reticle" id="reticle-ui">
-      <svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="30" stroke="var(--accent)" stroke-width="0.5" stroke-dasharray="3 3"/><circle cx="32" cy="32" r="3" fill="var(--accent)"/></svg>
-    </div>
+        <button slot="ar-button" id="ar-button">✨ VIEW IN YOUR ROOM</button>
+        <button id="rescan-button" onclick="rescan()">🔄 RESCAN FLOOR</button>
 
-    <div class="product-scroller" id="scroller"></div>
+        <div id="instructions">
+            <p id="instruction-text">Scanning floor... move phone side-to-side.</p>
+        </div>
 
-    <div class="bottom-panel" id="ui-panel">
-      <div id="p-name" style="font-family:'Playfair Display',serif; font-size:26px">Sofa</div>
-      <div id="p-price" style="font-size:18px; color:var(--accent); font-weight:700">₹45,000</div>
-      <div style="display:flex; gap:12px; margin-top:20px">
-        <button class="action-btn" id="rotate-obj">Rotate</button>
-        <button class="action-btn" id="remove-obj">Remove</button>
-        <button class="action-btn primary">Checkout</button>
-      </div>
-    </div>
-  </div>
+        <div class="slider">
+            <div class="slide" style="background-image: url('./images/sofa.jpg')" onclick="changeModel('models/sofa-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/table1.webp')" onclick="changeModel('models/study_table-v2.glb')"></div>
+            <div class="slide" style="background-image: url('./images/bed1.jpg')" onclick="changeModel('models/single_bed-v1.glb')"></div>
+            <div class="slide" style="background-image: url('./images/gamingchair.webp')" onclick="changeModel('models/gaming_chair-v1.glb')"></div>
+        </div>
+    </model-viewer>
 
-  <div class="toast" id="toast-msg"></div>
+    <script>
+        const mv = document.querySelector("#room-stager");
+        const instructions = document.querySelector("#instructions");
+        const statusText = document.querySelector("#instruction-text");
+        const rescanBtn = document.querySelector("#rescan-button");
 
-  <!-- Reliable CDN imports for Three.js and Loaders -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/loaders/DRACOLoader.js"></script>
+        function changeModel(path) {
+            mv.src = path;
+        }
 
-  <script>
-    const PRODUCTS = [
-      { id:'sofa', name:'Velvet Elite Sofa', price:'₹45,000', model:'models/sofa-v1.glb', icon:'🛋️' },
-      { id:'table', name:'Architect Table', price:'₹18,000', model:'models/study_table-v2.glb', icon:'🍽️' },
-      { id:'bed', name:'Majestic Bed', price:'₹32,000', model:'models/single_bed-v1.glb', icon:'🛏️' },
-      { id:'chair', name:'Gaming Chair', price:'₹22,000', model:'models/gaming_chair-v1.glb', icon:'🎮' }
-    ];
+        // Rescan Function
+        function rescan() {
+            // Forces the model to reset its hit-test position
+            const currentSrc = mv.src;
+            mv.src = ""; // Clear momentarily
+            setTimeout(() => {
+                mv.src = currentSrc;
+                instructions.style.display = "block";
+                statusText.innerText = "Rescanning... find a flat surface.";
+                statusText.style.background = "rgba(0, 0, 0, 0.75)";
+            }, 100);
+        }
 
-    let selectedModel = PRODUCTS[0];
-    let placedGroups = [];
-    let currentSelection = null;
-    let surfaceReady = false;
+        // Handle AR status changes
+        mv.addEventListener('ar-status', (event) => {
+            if (event.detail.status === 'session-started') {
+                instructions.style.display = "block";
+                rescanBtn.style.display = "block"; 
+            } else {
+                instructions.style.display = "none";
+                rescanBtn.style.display = "none"; 
+            }
+        });
 
-    // Loaders initialization
-    const gltfLoader = new THREE.GLTFLoader();
-    const dracoLoader = new THREE.DRACOLoader();
-    // Using a reliable Google CDN for the Draco decoder binaries
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
-    gltfLoader.setDRACOLoader(dracoLoader);
-
-    const canvas = document.getElementById('three-canvas');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
-    scene.add(new THREE.AmbientLight(0xffffff, 1));
-    const dl = new THREE.DirectionalLight(0xffffff, 0.8);
-    dl.position.set(2, 5, 2);
-    scene.add(dl);
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshBasicMaterial({visible:false}));
-    floor.rotation.x = -Math.PI/2;
-    scene.add(floor);
-
-    const raycaster = new THREE.Raycaster();
-    function getHit(x, y) {
-      const r = canvas.getBoundingClientRect();
-      const vx = ((x - r.left) / r.width) * 2 - 1;
-      const vy = -((y - r.top) / r.height) * 2 + 1;
-      raycaster.setFromCamera(new THREE.Vector2(vx, vy), camera);
-      const hits = raycaster.intersectObject(floor);
-      return hits.length ? hits[0].point : null;
-    }
-
-    function placeObj(x, y) {
-      const pos = getHit(x, y);
-      if (!pos) return;
-      
-      const targetUrl = selectedModel.model;
-      showToast('⚡ LOADING...');
-      
-      gltfLoader.load(targetUrl, (gltf) => {
-        const obj = gltf.scene;
-        
-        // Accurate floor-lock logic
-        const box = new THREE.Box3().setFromObject(obj);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        
-        // Center horizontally, lock bottom to Y=0
-        obj.position.x += (pos.x - center.x);
-        obj.position.y += (0 - box.min.y); 
-        obj.position.z += (pos.z - center.z);
-        
-        // Intelligent auto-scaling
-        const max = Math.max(size.x, size.y, size.z);
-        if (max > 10) obj.scale.setScalar(0.01); 
-        else if (max < 0.1) obj.scale.setScalar(10);
-
-        scene.add(obj);
-        placedGroups.push(obj);
-        currentSelection = obj;
-        updateUI();
-        showToast('✓ Placed Successfully');
-      }, undefined, (err) => {
-        console.error('Loader Error:', err);
-        showToast('⚠ Error loading ' + targetUrl.split('/').pop());
-      });
-    }
-
-    function showToast(m) {
-      const t = document.getElementById('toast-msg');
-      t.textContent = m; t.classList.add('show');
-      clearTimeout(t._timer);
-      t._timer = setTimeout(() => t.classList.remove('show'), 3000);
-    }
-
-    function updateUI() {
-      document.getElementById('ui-panel').classList.add('active');
-      document.getElementById('p-name').textContent = selectedModel.name;
-      document.getElementById('p-price').textContent = selectedModel.price;
-    }
-
-    document.getElementById('launch-btn').onclick = async () => {
-      document.getElementById('landing').classList.add('hidden');
-      document.getElementById('ar-screen').classList.add('active');
-      const scroller = document.getElementById('scroller');
-      scroller.innerHTML = '';
-      PRODUCTS.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'scroll-item' + (p === selectedModel ? ' active' : '');
-        item.textContent = p.icon;
-        item.onclick = () => {
-          selectedModel = p;
-          document.querySelectorAll('.scroll-item').forEach(i => i.classList.remove('active'));
-          item.classList.add('active');
-        };
-        scroller.appendChild(item);
-      });
-      onResize();
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' } });
-        const v = document.createElement('video');
-        v.srcObject = s; v.autoplay = v.playsInline = true;
-        v.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; object-fit:cover;';
-        document.getElementById('camera-overlay').appendChild(v);
-      } catch(e) {}
-      setTimeout(() => { document.getElementById('scan-status').classList.add('hidden'); document.getElementById('reticle-ui').classList.add('visible'); surfaceReady = true; }, 2000);
-    };
-
-    document.getElementById('back-btn').onclick = () => location.reload();
-    
-    document.getElementById('rotate-obj').onclick = () => {
-      if (currentSelection) { currentSelection.rotation.y += Math.PI/4; }
-    };
-    document.getElementById('remove-obj').onclick = () => {
-      if (placedGroups.length) {
-        const o = placedGroups.pop();
-        scene.remove(o);
-        currentSelection = placedGroups[placedGroups.length-1] || null;
-        if (!currentSelection) document.getElementById('ui-panel').classList.remove('active');
-        showToast('🗑 Object Removed');
-      }
-    };
-
-    canvas.addEventListener('click', e => { if (surfaceReady) placeObj(e.clientX, e.clientY); });
-    function onResize() { renderer.setSize(window.innerWidth, window.innerHeight); camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); }
-    window.addEventListener('resize', onResize);
-    function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
-    animate();
-  </script>
+        // Handle successful floor detection
+        mv.addEventListener('ar-hit-test-achieved', () => {
+            statusText.innerText = "Floor locked. Tap to place.";
+            statusText.style.background = "rgba(0, 128, 0, 0.8)";
+            
+            setTimeout(() => {
+                instructions.style.display = "none";
+            }, 3000);
+        });
+    </script>
 </body>
 </html>
